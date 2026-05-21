@@ -7,7 +7,7 @@
 
 <!-- PWA -->
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#FAFAF7">
+<meta name="theme-color" content="#1F1F1E">
 
 <!-- iOS app-like: pantalla completa, título, ícono -->
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -24,7 +24,7 @@
 <style>
 :root { color-scheme: light; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { background: #FAFAF7; min-height: 100vh; }
+html, body { background: #E8E5DE; min-height: 100vh; }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   color: #1F1F1E;
@@ -37,6 +37,49 @@ body {
   max-width: 1080px; margin: 0 auto;
   padding: max(36px, env(safe-area-inset-top, 36px)) max(32px, env(safe-area-inset-right, 32px)) max(80px, calc(env(safe-area-inset-bottom, 0px) + 60px)) max(32px, env(safe-area-inset-left, 32px));
 }
+
+/* ── Header band oscuro ── */
+.header-band {
+  background: linear-gradient(135deg, #1F1F1E 0%, #2D2C28 100%);
+  border-radius: 18px;
+  padding: 24px 28px 28px;
+  margin-bottom: 20px;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+}
+.header-band .topbar { margin-bottom: 18px; }
+.header-band .month-picker {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(255,255,255,0.12);
+  color: rgba(255,255,255,0.75);
+}
+.header-band .month-picker:hover { border-color: rgba(255,255,255,0.25); }
+.header-band .refresh-btn {
+  background: transparent;
+  border-color: rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.45);
+}
+.header-band .refresh-btn:hover {
+  background: rgba(255,255,255,0.07);
+  color: rgba(255,255,255,0.8);
+}
+.header-band .header {
+  border-bottom-color: rgba(255,255,255,0.08);
+  margin-bottom: 22px;
+  padding-bottom: 18px;
+}
+.header-band .title { color: #FFFFFF; }
+.header-band .subtitle { color: rgba(255,255,255,0.38); }
+.header-band .day-info { color: rgba(255,255,255,0.38); }
+.header-band .kpi {
+  background: rgba(255,255,255,0.07);
+  border-color: rgba(255,255,255,0.1);
+}
+.header-band .kpi-label { color: rgba(255,255,255,0.38); }
+.header-band .kpi-value { color: #FFFFFF; }
+.header-band .kpi-hint { color: rgba(255,255,255,0.28); }
+.header-band .kpi-delta.pos { color: #6EE7B7; }
+.header-band .kpi-delta.neg { color: #FCA5A5; }
+.header-band .kpi-delta.neutral { color: rgba(255,255,255,0.3); }
 
 .topbar {
   display: flex; align-items: center; justify-content: space-between;
@@ -78,7 +121,7 @@ body {
 .row-2-1 { grid-template-columns: 1.4fr 1fr; }
 .row-1-1 { grid-template-columns: 1fr 1fr; }
 
-.card { background: #FFFFFF; border: 1px solid #ECECE8; border-radius: 14px; padding: 22px 24px; }
+.card { background: #FFFFFF; border: 1px solid #E8E5DE; border-radius: 14px; padding: 22px 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
 .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
 .card-title { font-size: 13px; font-weight: 500; color: #1F1F1E; letter-spacing: -0.005em; }
 .card-meta { font-size: 12px; color: #79786F; font-variant-numeric: tabular-nums; }
@@ -287,8 +330,9 @@ body {
 
 @media (max-width: 720px) {
   .app {
-    padding: max(20px, env(safe-area-inset-top, 20px)) max(16px, env(safe-area-inset-right, 16px)) max(60px, calc(env(safe-area-inset-bottom, 0px) + 40px)) max(16px, env(safe-area-inset-left, 16px));
+    padding: max(16px, env(safe-area-inset-top, 16px)) max(12px, env(safe-area-inset-right, 12px)) max(60px, calc(env(safe-area-inset-bottom, 0px) + 40px)) max(12px, env(safe-area-inset-left, 12px));
   }
+  .header-band { border-radius: 14px; padding: 18px 18px 22px; }
   .topbar { flex-wrap: wrap; gap: 8px; }
   .kpi-grid { grid-template-columns: repeat(2, 1fr); }
   .row-2-1, .row-1-1 { grid-template-columns: 1fr; }
@@ -539,45 +583,47 @@ function render() {
   const evolMeses = [...data.meses].reverse();
 
   const html = `
-    <div class="topbar">
-      <select class="month-picker" id="month-picker">
-        ${monthOptions}
-      </select>
-      <button class="refresh-btn" id="refresh-btn" onclick="refresh()">Actualizar datos</button>
-    </div>
+    <div class="header-band">
+      <div class="topbar">
+        <select class="month-picker" id="month-picker">
+          ${monthOptions}
+        </select>
+        <button class="refresh-btn" id="refresh-btn" onclick="refresh()">Actualizar datos</button>
+      </div>
 
-    <div class="header">
-      <div>
-        <div class="title">${esc(monthLabel)}</div>
-        <div class="subtitle">Finanzas personales · Agustín Devoto</div>
+      <div class="header">
+        <div>
+          <div class="title">${esc(monthLabel)}</div>
+          <div class="subtitle">Finanzas personales · Agustín Devoto</div>
+        </div>
+        <div class="day-info">${isCurrentMonth ? 'Día ' + dayOfMonth + ' de ' + daysInMonth + ' · ' + daysRemaining + ' restantes' : 'Mes cerrado'}</div>
       </div>
-      <div class="day-info">${isCurrentMonth ? 'Día ' + dayOfMonth + ' de ' + daysInMonth + ' · ' + daysRemaining + ' restantes' : 'Mes cerrado'}</div>
-    </div>
 
-    <div class="kpi-grid">
-      <div class="kpi">
-        <div class="kpi-label">Ingresos</div>
-        <div class="kpi-value">${fmtMoney(mes.ingreso)}</div>
-        <div class="kpi-hint">${mes.ingresos.length} entrada${mes.ingresos.length === 1 ? '' : 's'}</div>
-        ${deltaIngresos}
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Gastos</div>
-        <div class="kpi-value">${fmtMoney(mes.totalGastos)}</div>
-        <div class="kpi-hint">${mes.gastos.filter(g => g.cat !== 'Ahorro').length} movimientos</div>
-        ${deltaGastos}
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Ahorro</div>
-        <div class="kpi-value">${fmtMoney(mes.totalAhorro)}</div>
-        <div class="kpi-hint">${savingsPct}% del ingreso</div>
-        ${deltaAhorro}
-      </div>
-      <div class="kpi">
-        <div class="kpi-label">Saldo</div>
-        <div class="kpi-value" style="color: ${mes.saldo < 0 ? '#A32D2D' : '#1F1F1E'};">${fmtMoney(mes.saldo)}</div>
-        <div class="kpi-hint">después de ahorro</div>
-        ${deltaSaldo}
+      <div class="kpi-grid">
+        <div class="kpi">
+          <div class="kpi-label">Ingresos</div>
+          <div class="kpi-value">${fmtMoney(mes.ingreso)}</div>
+          <div class="kpi-hint">${mes.ingresos.length} entrada${mes.ingresos.length === 1 ? '' : 's'}</div>
+          ${deltaIngresos}
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Gastos</div>
+          <div class="kpi-value">${fmtMoney(mes.totalGastos)}</div>
+          <div class="kpi-hint">${mes.gastos.filter(g => g.cat !== 'Ahorro').length} movimientos</div>
+          ${deltaGastos}
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Ahorro</div>
+          <div class="kpi-value">${fmtMoney(mes.totalAhorro)}</div>
+          <div class="kpi-hint">${savingsPct}% del ingreso</div>
+          ${deltaAhorro}
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Saldo</div>
+          <div class="kpi-value" style="color: ${mes.saldo < 0 ? '#FCA5A5' : '#FFFFFF'};">${fmtMoney(mes.saldo)}</div>
+          <div class="kpi-hint">después de ahorro</div>
+          ${deltaSaldo}
+        </div>
       </div>
     </div>
 
