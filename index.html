@@ -35,27 +35,27 @@ body { background: transparent; min-height: 100vh; }
 
 /* ── Fondo animado tipo "aurora/mesh" (puro CSS, ~0 KB) ── */
 .bg-orbs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-.bg-orbs .orb { position: absolute; border-radius: 50%; filter: blur(75px); opacity: 0.8; will-change: transform; }
-.orb-1 { width: 55vw; height: 55vw; top: -12%; left: -14%;
-  background: radial-gradient(circle at center, #E89A6C, transparent 66%);
-  animation: orbFloat1 22s ease-in-out infinite alternate; }
-.orb-2 { width: 52vw; height: 52vw; top: -14%; right: -14%;
-  background: radial-gradient(circle at center, #A99CE6, transparent 66%);
-  animation: orbFloat2 27s ease-in-out infinite alternate; }
-.orb-3 { width: 54vw; height: 54vw; bottom: -16%; left: 6%;
-  background: radial-gradient(circle at center, #8FCBAB, transparent 66%);
-  animation: orbFloat3 24s ease-in-out infinite alternate; }
-.orb-4 { width: 50vw; height: 50vw; bottom: -16%; right: -10%;
-  background: radial-gradient(circle at center, #E8A0BC, transparent 66%);
-  animation: orbFloat4 29s ease-in-out infinite alternate; }
-.orb-5 { width: 46vw; height: 46vw; top: 28%; left: 33%;
-  background: radial-gradient(circle at center, #E8C77E, transparent 66%);
-  animation: orbFloat5 31s ease-in-out infinite alternate; }
-@keyframes orbFloat1 { from { transform: translate(0,0) scale(1); }    to { transform: translate(15vw, 16vh) scale(1.2); } }
-@keyframes orbFloat2 { from { transform: translate(0,0) scale(1); }    to { transform: translate(-16vw, 12vh) scale(1.15); } }
-@keyframes orbFloat3 { from { transform: translate(0,0) scale(0.95); } to { transform: translate(14vw, -14vh) scale(1.12); } }
-@keyframes orbFloat4 { from { transform: translate(0,0) scale(1.05); } to { transform: translate(-12vw, -16vh) scale(0.92); } }
-@keyframes orbFloat5 { from { transform: translate(0,0) scale(1); }    to { transform: translate(-14vw, 14vh) scale(1.18); } }
+.bg-orbs .orb { position: absolute; border-radius: 50%; filter: blur(72px); will-change: transform, opacity; }
+.orb-1 { width: 62vw; height: 62vw; top: -15%; left: -16%;
+  background: radial-gradient(circle at center, #E8906A, transparent 64%);
+  animation: orbFloat1 8s ease-in-out infinite alternate; }
+.orb-2 { width: 58vw; height: 58vw; top: -16%; right: -16%;
+  background: radial-gradient(circle at center, #9A8AE8, transparent 64%);
+  animation: orbFloat2 10s ease-in-out infinite alternate; }
+.orb-3 { width: 60vw; height: 60vw; bottom: -18%; left: 3%;
+  background: radial-gradient(circle at center, #78C49E, transparent 64%);
+  animation: orbFloat3 9s ease-in-out infinite alternate; }
+.orb-4 { width: 54vw; height: 54vw; bottom: -18%; right: -12%;
+  background: radial-gradient(circle at center, #E48CC0, transparent 64%);
+  animation: orbFloat4 11s ease-in-out infinite alternate; }
+.orb-5 { width: 52vw; height: 52vw; top: 28%; left: 30%;
+  background: radial-gradient(circle at center, #E8BE6A, transparent 64%);
+  animation: orbFloat5 7s ease-in-out infinite alternate; }
+@keyframes orbFloat1 { from { transform: translate(0,0) scale(1);    opacity: 0.72; } to { transform: translate(24vw, 24vh) scale(1.35); opacity: 0.95; } }
+@keyframes orbFloat2 { from { transform: translate(0,0) scale(1.1);  opacity: 0.80; } to { transform: translate(-24vw, 18vh) scale(0.85); opacity: 0.55; } }
+@keyframes orbFloat3 { from { transform: translate(0,0) scale(0.88); opacity: 0.68; } to { transform: translate(22vw, -22vh) scale(1.30); opacity: 0.95; } }
+@keyframes orbFloat4 { from { transform: translate(0,0) scale(1.12); opacity: 0.78; } to { transform: translate(-20vw, -24vh) scale(0.82); opacity: 0.55; } }
+@keyframes orbFloat5 { from { transform: translate(0,0) scale(1);    opacity: 0.50; } to { transform: translate(-22vw, 22vh) scale(1.38); opacity: 0.88; } }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   color: #1F1F1E; font-size: 14px; line-height: 1.5;
