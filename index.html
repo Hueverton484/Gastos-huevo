@@ -262,11 +262,130 @@ body {
   .annual-header, .annual-row { grid-template-columns: 1.2fr 1fr 1fr 1fr; }
   .annual-header span:nth-child(4), .annual-row span:nth-child(4) { display: none; }
 }
+
+/* ═══════════ Animaciones y microinteracciones ═══════════ */
+@keyframes shimmer { 0% { background-position: -1000px 0; } 100% { background-position: 1000px 0; } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes growX { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes modalIn { from { opacity: 0; transform: translateY(24px) scale(0.96); } to { opacity: 1; transform: none; } }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes pulse { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+/* Glow sutil en el header oscuro */
+.header-band { position: relative; overflow: hidden;
+  background: radial-gradient(120% 120% at 100% 0%, rgba(83,70,176,0.30) 0%, rgba(83,70,176,0) 42%), linear-gradient(135deg, #1F1F1E 0%, #2D2C28 100%); }
+
+/* Entrada en cascada de los bloques principales */
+#app > * { animation: fadeInUp 0.55s cubic-bezier(0.22, 1, 0.36, 1) both; }
+#app > *:nth-child(1) { animation-delay: 0s; }
+#app > *:nth-child(2) { animation-delay: 0.05s; }
+#app > *:nth-child(3) { animation-delay: 0.10s; }
+#app > *:nth-child(4) { animation-delay: 0.15s; }
+#app > *:nth-child(5) { animation-delay: 0.20s; }
+#app > *:nth-child(6) { animation-delay: 0.25s; }
+#app > *:nth-child(7) { animation-delay: 0.30s; }
+#app > *:nth-child(n+8) { animation-delay: 0.34s; }
+
+/* Tarjetas: elevación al pasar el mouse */
+.card { transition: transform 0.22s cubic-bezier(0.4,0,0.2,1), box-shadow 0.22s cubic-bezier(0.4,0,0.2,1); }
+.card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.10); }
+
+/* KPIs */
+.kpi { transition: transform 0.2s cubic-bezier(0.4,0,0.2,1), background 0.2s ease; }
+.header-band .kpi:hover { background: rgba(255,255,255,0.13); transform: translateY(-2px); }
+
+/* Insight chips */
+.insight-chip { transition: transform 0.16s ease, box-shadow 0.16s ease; cursor: default; }
+.insight-chip:hover { transform: translateY(-2px); box-shadow: 0 4px 14px rgba(0,0,0,0.07); }
+
+/* Botones y controles */
+.refresh-btn, .month-picker, .chat-send, .chat-sugg, .btn-save, .btn-cancel, .modal-tab, .tx-search, .tx-cat-filter, .chat-input, .modal-close { transition: all 0.18s ease; }
+.chat-send:not(:disabled):hover { background: #5346B0; transform: translateY(-1px); }
+.chat-sugg:hover { transform: translateY(-1px); }
+.btn-save:not(:disabled):hover { background: #5346B0; }
+
+/* Barras que crecen desde 0 */
+.cat-fill, .goal-fill, .proj-fill { transform-origin: left center; animation: growX 0.85s cubic-bezier(0.22,1,0.36,1) 0.25s both; }
+
+/* FAB con rotación */
+.fab { transition: transform 0.28s cubic-bezier(0.34,1.56,0.64,1), background 0.2s ease, box-shadow 0.28s ease; }
+.fab:hover { background: #5346B0; transform: scale(1.08) rotate(90deg); box-shadow: 0 8px 26px rgba(83,70,176,0.45); }
+.fab:active { transform: scale(0.94) rotate(90deg); }
+
+/* Filas con hover */
+.tx-row, .top-row { margin: 0 -10px; padding-left: 10px; padding-right: 10px; border-radius: 8px; transition: background 0.15s ease; }
+.tx-row:hover, .top-row:hover { background: #FAF9F5; }
+.annual-row:not(.current):hover { background: #FAF9F5; }
+
+/* Mensajes de chat */
+.chat-msg { animation: fadeInUp 0.32s cubic-bezier(0.22,1,0.36,1) both; }
+
+/* Modal */
+.modal-overlay.show { animation: fadeIn 0.2s ease; }
+.modal { animation: modalIn 0.32s cubic-bezier(0.34,1.56,0.64,1); }
+
+/* Spinner del botón actualizar */
+.spinner { display: inline-block; width: 11px; height: 11px; border: 2px solid rgba(255,255,255,0.25); border-top-color: rgba(255,255,255,0.85); border-radius: 50%; animation: spin 0.7s linear infinite; vertical-align: -1px; margin-right: 6px; }
+
+/* Scrollbars finos */
+.tx-list::-webkit-scrollbar, .annual-table::-webkit-scrollbar, .chat-messages::-webkit-scrollbar { width: 8px; height: 8px; }
+.tx-list::-webkit-scrollbar-track, .annual-table::-webkit-scrollbar-track, .chat-messages::-webkit-scrollbar-track { background: transparent; }
+.tx-list::-webkit-scrollbar-thumb, .annual-table::-webkit-scrollbar-thumb, .chat-messages::-webkit-scrollbar-thumb { background: #DDD9D0; border-radius: 4px; }
+.tx-list::-webkit-scrollbar-thumb:hover, .annual-table::-webkit-scrollbar-thumb:hover, .chat-messages::-webkit-scrollbar-thumb:hover { background: #C9C4B9; }
+
+/* ── Skeleton loader ── */
+.sk-band { background: radial-gradient(120% 120% at 100% 0%, rgba(83,70,176,0.25) 0%, rgba(83,70,176,0) 42%), linear-gradient(135deg,#1F1F1E 0%,#2D2C28 100%); border-radius: 18px; padding: 24px 28px 28px; margin-bottom: 16px; box-shadow: 0 8px 32px rgba(0,0,0,0.18); }
+.sk-toprow { display: flex; justify-content: space-between; margin-bottom: 24px; }
+.sk-dark { background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.05) 75%); background-size: 1000px 100%; animation: shimmer 1.6s infinite linear; border-radius: 8px; }
+.sk-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.sk-kpi { height: 94px; border-radius: 12px; background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.05) 75%); background-size: 1000px 100%; animation: shimmer 1.6s infinite linear; }
+.sk-chips { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+.sk-chip { height: 33px; border-radius: 20px; background: linear-gradient(90deg,#ECEAE3 25%,#F5F3ED 50%,#ECEAE3 75%); background-size: 1000px 100%; animation: shimmer 1.6s infinite linear; }
+.sk-grid-21, .sk-grid-11 { display: grid; gap: 16px; margin-bottom: 16px; }
+.sk-grid-21 { grid-template-columns: 1.4fr 1fr; }
+.sk-grid-11 { grid-template-columns: 1fr 1fr; }
+.sk-card { background: #fff; border: 1px solid #E8E5DE; border-radius: 14px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); position: relative; overflow: hidden; }
+.sk-card::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent 25%, rgba(0,0,0,0.03) 50%, transparent 75%); background-size: 1000px 100%; animation: shimmer 1.6s infinite linear; }
+.sk-loading-text { text-align: center; color: #ABA9A0; font-size: 12px; margin-top: 22px; letter-spacing: 0.02em; animation: pulse 1.5s ease-in-out infinite; }
+@media (max-width: 720px) {
+  .sk-kpis { grid-template-columns: repeat(2, 1fr); }
+  .sk-grid-21, .sk-grid-11 { grid-template-columns: 1fr; }
+}
+
+/* Respeta a quienes prefieren menos movimiento */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}
 </style>
 </head>
 <body>
 <div id="app" class="app">
-  <div class="loading">Cargando datos del Sheet…</div>
+  <div class="sk-band">
+    <div class="sk-toprow">
+      <div class="sk-dark" style="width:130px;height:32px;"></div>
+      <div class="sk-dark" style="width:130px;height:32px;"></div>
+    </div>
+    <div class="sk-dark" style="width:200px;height:28px;margin-bottom:8px;"></div>
+    <div class="sk-dark" style="width:260px;height:14px;margin-bottom:26px;"></div>
+    <div class="sk-kpis">
+      <div class="sk-kpi"></div><div class="sk-kpi"></div><div class="sk-kpi"></div><div class="sk-kpi"></div>
+    </div>
+  </div>
+  <div class="sk-chips">
+    <div class="sk-chip" style="width:200px;"></div>
+    <div class="sk-chip" style="width:240px;"></div>
+    <div class="sk-chip" style="width:170px;"></div>
+  </div>
+  <div class="sk-grid-21">
+    <div class="sk-card" style="height:400px;"></div>
+    <div class="sk-card" style="height:400px;"></div>
+  </div>
+  <div class="sk-grid-11">
+    <div class="sk-card" style="height:240px;"></div>
+    <div class="sk-card" style="height:240px;"></div>
+  </div>
+  <div class="sk-loading-text">Cargando tus finanzas…</div>
 </div>
 
 <button class="fab" id="fab-add" aria-label="Cargar gasto o ingreso" title="Cargar nuevo">+</button>
@@ -439,7 +558,7 @@ function load() {
 
 function refresh() {
   const btn = document.getElementById('refresh-btn');
-  if (btn) { btn.disabled = true; btn.textContent = 'Actualizando…'; }
+  if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Actualizando…'; }
   load();
 }
 function onError(err) {
@@ -566,25 +685,25 @@ function render() {
       <div class="kpi-grid">
         <div class="kpi">
           <div class="kpi-label">Ingresos</div>
-          <div class="kpi-value">${fmtMoney(mes.ingreso)}</div>
+          <div class="kpi-value" data-count="${mes.ingreso}">${fmtMoney(mes.ingreso)}</div>
           <div class="kpi-hint">${mes.ingresos.length} entrada${mes.ingresos.length === 1 ? '' : 's'}</div>
           ${deltaIngresos}
         </div>
         <div class="kpi">
           <div class="kpi-label">Gastos</div>
-          <div class="kpi-value">${fmtMoney(mes.totalGastos)}</div>
+          <div class="kpi-value" data-count="${mes.totalGastos}">${fmtMoney(mes.totalGastos)}</div>
           <div class="kpi-hint">${mes.gastos.filter(g => g.cat !== 'Ahorro').length} movimientos</div>
           ${deltaGastos}
         </div>
         <div class="kpi">
           <div class="kpi-label">Ahorro</div>
-          <div class="kpi-value">${fmtMoney(mes.totalAhorro)}</div>
+          <div class="kpi-value" data-count="${mes.totalAhorro}">${fmtMoney(mes.totalAhorro)}</div>
           <div class="kpi-hint">${savingsPct}% del ingreso</div>
           ${deltaAhorro}
         </div>
         <div class="kpi">
           <div class="kpi-label">Saldo</div>
-          <div class="kpi-value" style="color:${mes.saldo < 0 ? '#FCA5A5' : '#FFFFFF'};">${fmtMoney(mes.saldo)}</div>
+          <div class="kpi-value" data-count="${mes.saldo}" style="color:${mes.saldo < 0 ? '#FCA5A5' : '#FFFFFF'};">${fmtMoney(mes.saldo)}</div>
           <div class="kpi-hint">después de ahorro</div>
           ${deltaSaldo}
         </div>
@@ -758,9 +877,28 @@ function render() {
   });
 
   renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mes.mesNum);
+  animateCounts();
   setupTransactionSearch(allTx);
   setupChat();
   setupAddForm();
+}
+
+/* ── Conteo animado de los KPIs ── */
+function animateCounts() {
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const target = parseFloat(el.getAttribute('data-count'));
+    if (isNaN(target)) return;
+    const duration = 750;
+    const startT = performance.now();
+    function step(now) {
+      const p = Math.min(1, (now - startT) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      el.textContent = fmtMoney(target * eased);
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = fmtMoney(target);
+    }
+    requestAnimationFrame(step);
+  });
 }
 
 function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum) {
@@ -778,6 +916,7 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum) {
       },
       options: {
         responsive: true, maintainAspectRatio: false, cutout: '65%',
+        animation: { animateScale: true, animateRotate: true, duration: 850, easing: 'easeOutQuart' },
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: ctx => ' ' + ctx.label + ': ' + fmtMoney(ctx.raw) + ' (' + (ctx.raw / total * 100).toFixed(0) + '%)' } }
@@ -805,6 +944,7 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum) {
       },
       options: {
         responsive: true, maintainAspectRatio: false,
+        animation: { duration: 1000, easing: 'easeOutQuart' },
         interaction: { mode: 'index', intersect: false },
         plugins: {
           legend: { position: 'top', align: 'end', labels: { font: tickFont, color: '#79786F', boxWidth: 10, boxHeight: 10, padding: 16 } },
@@ -840,6 +980,7 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum) {
       },
       options: {
         responsive: true, maintainAspectRatio: false,
+        animation: { duration: 850, easing: 'easeOutQuart', delay(ctx) { return ctx.type === 'data' && ctx.mode === 'default' ? ctx.dataIndex * 90 : 0; } },
         plugins: {
           legend: { display: false },
           tooltip: { callbacks: { label: ctx => ' ' + fmtMoney(ctx.raw) } }
