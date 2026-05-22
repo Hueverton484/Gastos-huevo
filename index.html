@@ -18,8 +18,14 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="icon" type="image/png" sizes="512x512" href="icon-512.png">
 
-<!-- Chart.js -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<!-- Conexiones tempranas para acelerar la primera carga -->
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="dns-prefetch" href="https://script.googleusercontent.com">
+
+<!-- Chart.js (diferido: no bloquea el primer pintado) -->
+<script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
 <style>
 :root { color-scheme: light; }
@@ -443,6 +449,9 @@ const MONTH_NAMES = ['enero','febrero','marzo','abril','mayo','junio','julio','a
 let _DATA = null;
 let _CURRENT_MONTH = null;
 let _CHARTS = {};
+let _CACHE_SIG = null;
+let _REFRESHING = false;
+const CACHE_KEY = 'misgastos_cache_v1';
 
 function fmtMoney(n) {
   if (n == null || isNaN(n)) return '—';
@@ -539,7 +548,33 @@ function getWeeklyData(gastos, daysInMonth) {
 
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtWDa0E_5WK11J_f41zJS57CmD9KY0WAKb6MUq4Z8L4YV09WzPsTgAA7qQ8I0TkZ67fQ/exec';
 
+// Firma de los datos ignorando el timestamp, para detectar cambios reales
+function dataSig(d) {
+  if (!d) return '';
+  try { const { actualizado, ...rest } = d; return JSON.stringify(rest); }
+  catch (e) { return JSON.stringify(d); }
+}
+
+// Pinta al instante desde la caché local (si existe) mientras llega la data fresca
+function renderFromCache() {
+  try {
+    const raw = localStorage.getItem(CACHE_KEY);
+    if (!raw) return false;
+    const cached = JSON.parse(raw);
+    if (!cached || !cached.meses || !cached.meses.length) return false;
+    _CACHE_SIG = dataSig(cached);
+    _DATA = cached;
+    if (!_CURRENT_MONTH) _CURRENT_MONTH = cached.meses[0].key;
+    render();
+    return true;
+  } catch (e) { _CACHE_SIG = null; return false; }
+}
+
 function load() {
+  // En la primera carga, mostramos la caché de inmediato (sensación instantánea)
+  _REFRESHING = true;
+  if (!_DATA) renderFromCache();
+
   const cbName = '__loadDashboard_' + Date.now();
   const script = document.createElement('script');
   function cleanup() {
@@ -561,15 +596,30 @@ function refresh() {
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Actualizando…'; }
   load();
 }
+function clearRefreshing() {
+  _REFRESHING = false;
+  const btn = document.getElementById('refresh-btn');
+  if (btn) { btn.disabled = false; btn.innerHTML = 'Actualizar datos'; }
+}
 function onError(err) {
+  _REFRESHING = false;
+  // Si ya estamos mostrando datos (de caché), no rompemos la vista: solo limpiamos el spinner
+  if (_DATA) { clearRefreshing(); return; }
   document.getElementById('app').innerHTML = '<div class="error">Error: ' + esc(err && err.message ? err.message : err) + '</div>';
 }
 function onData(data) {
-  _DATA = data;
+  _REFRESHING = false;
   if (!data.meses || !data.meses.length) {
-    document.getElementById('app').innerHTML = '<div class="empty-state">No hay gastos cargados todavía.</div>';
+    if (!_DATA) document.getElementById('app').innerHTML = '<div class="empty-state">No hay gastos cargados todavía.</div>';
+    else clearRefreshing();
     return;
   }
+  try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (e) {}
+  // Si la data fresca es igual a la que ya pintamos desde caché, evitamos re-renderizar (sin parpadeo)
+  const sig = dataSig(data);
+  if (_CACHE_SIG === sig && _DATA) { _CACHE_SIG = null; clearRefreshing(); return; }
+  _CACHE_SIG = null;
+  _DATA = data;
   if (!_CURRENT_MONTH) _CURRENT_MONTH = data.meses[0].key;
   render();
 }
@@ -673,7 +723,7 @@ function render() {
     <div class="header-band">
       <div class="topbar">
         <select class="month-picker" id="month-picker">${monthOptions}</select>
-        <button class="refresh-btn" id="refresh-btn" onclick="refresh()">Actualizar datos</button>
+        <button class="refresh-btn" id="refresh-btn" onclick="refresh()"${_REFRESHING ? ' disabled' : ''}>${_REFRESHING ? '<span class="spinner"></span>Actualizando…' : 'Actualizar datos'}</button>
       </div>
       <div class="header">
         <div>
@@ -901,7 +951,13 @@ function animateCounts() {
   });
 }
 
-function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum) {
+function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, _try) {
+  // Chart.js carga diferido: si todavía no está listo, reintentamos en breve
+  if (typeof Chart === 'undefined') {
+    if ((_try || 0) > 80) return; // ~5s tope: evita loop infinito si el CDN falla
+    setTimeout(() => renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, (_try || 0) + 1), 60);
+    return;
+  }
   const tickFont = { size: 11, family: "'Inter', system-ui, sans-serif" };
 
   // Donut — categorías
