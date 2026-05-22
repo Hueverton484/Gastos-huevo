@@ -31,6 +31,26 @@
 :root { color-scheme: light; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body { background: #E8E5DE; min-height: 100vh; }
+
+/* ── Fondo animado tipo "aurora" (puro CSS, ~0 KB) ── */
+.bg-orbs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.bg-orbs .orb { position: absolute; border-radius: 50%; filter: blur(72px); will-change: transform; }
+.orb-1 { width: 46vw; height: 46vw; top: -8%; left: -6%;
+  background: radial-gradient(circle at center, rgba(216,90,48,0.34), rgba(216,90,48,0) 70%);
+  animation: orbFloat1 24s ease-in-out infinite alternate; }
+.orb-2 { width: 42vw; height: 42vw; bottom: -10%; right: -8%;
+  background: radial-gradient(circle at center, rgba(99,112,66,0.30), rgba(99,112,66,0) 70%);
+  animation: orbFloat2 30s ease-in-out infinite alternate; }
+.orb-3 { width: 38vw; height: 38vw; top: 36%; left: 40%;
+  background: radial-gradient(circle at center, rgba(83,70,176,0.22), rgba(83,70,176,0) 70%);
+  animation: orbFloat3 27s ease-in-out infinite alternate; }
+.orb-4 { width: 34vw; height: 34vw; top: 6%; right: 20%;
+  background: radial-gradient(circle at center, rgba(193,142,72,0.32), rgba(193,142,72,0) 70%);
+  animation: orbFloat4 33s ease-in-out infinite alternate; }
+@keyframes orbFloat1 { from { transform: translate(0,0) scale(1); }    to { transform: translate(14vw, 16vh) scale(1.18); } }
+@keyframes orbFloat2 { from { transform: translate(0,0) scale(1); }    to { transform: translate(-16vw, -12vh) scale(1.12); } }
+@keyframes orbFloat3 { from { transform: translate(0,0) scale(0.95); } to { transform: translate(-12vw, 14vh) scale(1.1); } }
+@keyframes orbFloat4 { from { transform: translate(0,0) scale(1.05); } to { transform: translate(10vw, -14vh) scale(0.92); } }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   color: #1F1F1E; font-size: 14px; line-height: 1.5;
@@ -366,6 +386,13 @@ body {
 </style>
 </head>
 <body>
+<!-- Fondo animado tipo aurora (puro CSS, sin imágenes) -->
+<div class="bg-orbs" aria-hidden="true">
+  <div class="orb orb-1"></div>
+  <div class="orb orb-2"></div>
+  <div class="orb orb-3"></div>
+  <div class="orb orb-4"></div>
+</div>
 <div id="app" class="app">
   <div class="sk-band">
     <div class="sk-toprow">
