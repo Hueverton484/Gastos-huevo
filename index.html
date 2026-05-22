@@ -564,18 +564,39 @@ function generateInsights(mes, prevMes, dailyAvg, daysInMonth, noSpendDays, savi
   return out.slice(0, 3);
 }
 
+/* ── Fecha (timestamp) → "15 may" ── */
+function fmtDay(ts) {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+}
+
 /* ── Distribución semanal ── */
 function getWeeklyData(gastos, daysInMonth) {
   const weekCount = Math.ceil(daysInMonth / 7);
   const weeks = Array(weekCount).fill(0);
   gastos.forEach(g => {
     if (!g.fecha || g.cat === 'Ahorro') return;
-    const day = parseInt((String(g.fecha || '')).split('-')[2] || '0');
+    const day = new Date(g.fecha).getDate();
     if (!day) return;
     const idx = Math.min(weekCount - 1, Math.floor((day - 1) / 7));
     weeks[idx] += g.monto || 0;
   });
   return weeks;
+}
+
+/* ── Gasto acumulado por día del mes (para el gráfico de ritmo) ── */
+function getCumulativeDaily(gastos, daysInMonth, lastDay) {
+  const daily = Array(daysInMonth + 1).fill(0);
+  gastos.forEach(g => {
+    if (!g.fecha || g.cat === 'Ahorro' || !g.monto) return;
+    const day = new Date(g.fecha).getDate();
+    if (day >= 1 && day <= daysInMonth) daily[day] += g.monto;
+  });
+  const cum = [];
+  let run = 0;
+  for (let d = 1; d <= lastDay; d++) { run += daily[d]; cum.push(run); }
+  return cum;
 }
 
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtWDa0E_5WK11J_f41zJS57CmD9KY0WAKb6MUq4Z8L4YV09WzPsTgAA7qQ8I0TkZ67fQ/exec';
@@ -669,7 +690,7 @@ function renderTxRows(list) {
     <div class="tx-row">
       <div class="tx-left">
         <span class="tx-desc">${esc((tx.desc || '').trim() || '—')}</span>
-        <span class="tx-meta">${esc(tx.cat)}${tx.fecha ? ' · ' + tx.fecha : ''}</span>
+        <span class="tx-meta">${esc(tx.cat)}${tx.fecha ? ' · ' + fmtDay(tx.fecha) : ''}</span>
       </div>
       <span class="tx-amt ${tx.tipo === 'ingreso' ? 'income' : ''}">${tx.tipo === 'ingreso' ? '+' : ''}${fmtMoney(tx.monto)}</span>
     </div>`).join('');
@@ -736,6 +757,13 @@ function render() {
   const evolMeses = [...data.meses].reverse();
   const weeklyData = getWeeklyData(mes.gastos, daysInMonth);
   const insights = generateInsights(mes, prevMes, dailyAvg, daysInMonth, noSpendDays, savingsPct);
+
+  // Datos de gráficos nuevos: ritmo de gasto + evolución del ahorro
+  const lastDaySpend = isCurrentMonth ? dayOfMonth : daysInMonth;
+  const cumulative = getCumulativeDaily(mes.gastos, daysInMonth, lastDaySpend);
+  const paceTarget = (data.presupuesto && data.presupuesto > 0) ? data.presupuesto : mes.ingreso;
+  const savingsSeries = evolMeses.map(m => m.ingreso > 0 ? Math.round(m.totalAhorro / m.ingreso * 100) : 0);
+  const chartExtra = { cumulative, paceTarget, lastDay: lastDaySpend, savingsSeries };
 
   // Resumen anual
   const annualRows = [...data.meses].reverse().map(m => {
@@ -893,6 +921,23 @@ function render() {
       </div>
     </div>
 
+    <div class="row row-1-1">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Ritmo de gasto del mes</div>
+          <div class="card-meta">acumulado vs. presupuesto</div>
+        </div>
+        <div class="chart-wrap-md"><canvas id="chart-ritmo"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Evolución del ahorro</div>
+          <div class="card-meta">% del ingreso por mes</div>
+        </div>
+        <div class="chart-wrap-md"><canvas id="chart-ahorro"></canvas></div>
+      </div>
+    </div>
+
     <div class="row row-1-15">
       <div class="card">
         <div class="card-header">
@@ -958,7 +1003,7 @@ function render() {
     _CURRENT_MONTH = e.target.value; render();
   });
 
-  renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mes.mesNum);
+  renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mes.mesNum, chartExtra);
   animateCounts();
   setupTransactionSearch(allTx);
   setupChat();
@@ -983,13 +1028,14 @@ function animateCounts() {
   });
 }
 
-function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, _try) {
+function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, extra, _try) {
   // Chart.js carga diferido: si todavía no está listo, reintentamos en breve
   if (typeof Chart === 'undefined') {
     if ((_try || 0) > 80) return; // ~5s tope: evita loop infinito si el CDN falla
-    setTimeout(() => renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, (_try || 0) + 1), 60);
+    setTimeout(() => renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, extra, (_try || 0) + 1), 60);
     return;
   }
+  extra = extra || {};
   const tickFont = { size: 11, family: "'Inter', system-ui, sans-serif" };
 
   // Donut — categorías
@@ -1076,6 +1122,74 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, _t
         scales: {
           x: { grid: { display: false }, ticks: { font: tickFont, color: '#79786F' } },
           y: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) } }
+        }
+      }
+    });
+  }
+
+  // Línea — ritmo de gasto del mes (acumulado vs. ritmo del presupuesto)
+  const ritmoCanvas = document.getElementById('chart-ritmo');
+  if (ritmoCanvas && extra.cumulative && extra.cumulative.length > 0) {
+    const dLabels = Array.from({ length: daysInMonth }, (_, i) => i + 1);
+    const cumPadded = extra.cumulative.concat(Array(Math.max(0, daysInMonth - extra.cumulative.length)).fill(null));
+    const target = extra.paceTarget || 0;
+    const pace = dLabels.map(d => Math.round(target * d / daysInMonth));
+    const lastVal = extra.cumulative[extra.cumulative.length - 1] || 0;
+    const lastPace = Math.round(target * (extra.lastDay || daysInMonth) / daysInMonth);
+    const overPace = lastVal > lastPace;
+    _CHARTS.ritmo = new Chart(ritmoCanvas, {
+      type: 'line',
+      data: {
+        labels: dLabels,
+        datasets: [
+          { label: 'Gastado', data: cumPadded, borderColor: overPace ? '#A32D2D' : '#1D9E75', backgroundColor: overPace ? 'rgba(163,45,45,0.07)' : 'rgba(29,158,117,0.07)', fill: true, tension: 0.25, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
+          { label: 'Ritmo presupuesto', data: pace, borderColor: '#C9C4B9', backgroundColor: 'transparent', fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5, borderDash: [5,4] }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 900, easing: 'easeOutQuart' },
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { position: 'top', align: 'end', labels: { font: tickFont, color: '#79786F', boxWidth: 10, boxHeight: 10, padding: 14 } },
+          tooltip: { callbacks: { title: items => 'Día ' + items[0].label, label: ctx => (ctx.raw == null ? '' : ' ' + ctx.dataset.label + ': ' + fmtMoney(ctx.raw)) } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: tickFont, color: '#79786F', maxTicksLimit: 8 } },
+          y: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) }, beginAtZero: true }
+        }
+      }
+    });
+  }
+
+  // Barras — evolución del ahorro (% del ingreso por mes)
+  const ahorroCanvas = document.getElementById('chart-ahorro');
+  if (ahorroCanvas && extra.savingsSeries && extra.savingsSeries.length > 0) {
+    const aLabels = evolMeses.map(m => {
+      const mn = MONTH_NAMES[m.mesNum];
+      return mn.charAt(0).toUpperCase() + mn.slice(1, 3) + ' ' + String(m.año).slice(2);
+    });
+    _CHARTS.ahorro = new Chart(ahorroCanvas, {
+      type: 'bar',
+      data: {
+        labels: aLabels,
+        datasets: [{
+          label: 'Ahorro',
+          data: extra.savingsSeries,
+          backgroundColor: extra.savingsSeries.map(v => v >= 20 ? '#1D9E75' : (v >= 10 ? '#C18E48' : '#A32D2D')),
+          borderRadius: 6, borderSkipped: false
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        animation: { duration: 850, easing: 'easeOutQuart', delay(ctx) { return ctx.type === 'data' && ctx.mode === 'default' ? ctx.dataIndex * 80 : 0; } },
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: ctx => ' Ahorro: ' + ctx.raw + '% del ingreso' } }
+        },
+        scales: {
+          x: { grid: { display: false }, ticks: { font: tickFont, color: '#79786F' } },
+          y: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F', callback: v => v + '%' }, beginAtZero: true }
         }
       }
     });
