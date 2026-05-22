@@ -27,6 +27,9 @@
 <!-- Chart.js (diferido: no bloquea el primer pintado) -->
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
+<!-- Aplicar tema antes del primer pintado (evita flash) -->
+<script>(function(){try{var t=localStorage.getItem('misgastos_theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
+
 <style>
 :root { color-scheme: light; }
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -388,6 +391,142 @@ body {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
+
+/* ═══════════ Modal de detalle de categoría ═══════════ */
+.cat-item { cursor: pointer; padding: 4px 8px; margin: 0 -8px; border-radius: 8px; transition: background 0.15s ease, transform 0.15s ease; }
+.cat-item:hover { background: rgba(0,0,0,0.04); }
+.cat-item:active { transform: scale(0.985); }
+.cat-detail-summary { display: flex; justify-content: space-between; align-items: baseline; padding: 12px 14px; background: #F8F7F3; border-radius: 10px; margin-bottom: 14px; }
+.cat-detail-summary .big { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cat-detail-summary .small { font-size: 12px; color: #79786F; }
+.cat-detail-list { max-height: 50vh; overflow-y: auto; display: flex; flex-direction: column; }
+.cat-detail-row { display: flex; justify-content: space-between; align-items: center; padding: 11px 4px; border-bottom: 1px solid #F2F1ED; font-size: 13px; }
+.cat-detail-row:last-child { border-bottom: none; }
+.cat-detail-row .left { display: flex; flex-direction: column; gap: 2px; flex: 1; padding-right: 12px; }
+.cat-detail-row .desc { color: #1F1F1E; }
+.cat-detail-row .date { color: #ABA9A0; font-size: 11px; font-variant-numeric: tabular-nums; }
+.cat-detail-row .amt { color: #1F1F1E; font-variant-numeric: tabular-nums; font-weight: 500; }
+
+/* ═══════════ Confetti (celebración meta) ═══════════ */
+.confetti-piece { position: fixed; top: -40px; font-size: 22px; pointer-events: none; z-index: 9999; animation: confettiFall linear forwards; will-change: transform, opacity; }
+@keyframes confettiFall {
+  0%   { transform: translateY(0) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+}
+
+/* ═══════════ Botón theme toggle ═══════════ */
+.theme-toggle {
+  background: transparent; border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 8px; padding: 6px 10px; font-size: 14px;
+  color: rgba(255,255,255,0.45); cursor: pointer; font-family: inherit;
+  line-height: 1; transition: all 0.2s ease;
+}
+.theme-toggle:hover { background: rgba(255,255,255,0.07); color: rgba(255,255,255,0.85); border-color: rgba(255,255,255,0.25); transform: rotate(15deg); }
+
+/* ═══════════════════════════════════════════════════════
+   DARK MODE
+   ═══════════════════════════════════════════════════════ */
+html[data-theme="dark"] { background: #0E0E12; color-scheme: dark; }
+html[data-theme="dark"] body { color: #E8E5DE; }
+
+/* Aurora más saturada en dark */
+html[data-theme="dark"] .bg-orbs .orb { filter: blur(85px); opacity: 0.55; }
+html[data-theme="dark"] .orb-1 { background: radial-gradient(circle at center, #C25B33, transparent 64%); }
+html[data-theme="dark"] .orb-2 { background: radial-gradient(circle at center, #4C3DAE, transparent 64%); }
+html[data-theme="dark"] .orb-3 { background: radial-gradient(circle at center, #2E8262, transparent 64%); }
+html[data-theme="dark"] .orb-4 { background: radial-gradient(circle at center, #A33A6E, transparent 64%); }
+html[data-theme="dark"] .orb-5 { background: radial-gradient(circle at center, #B6831C, transparent 64%); }
+
+/* Cards */
+html[data-theme="dark"] .card { background: rgba(24,24,28,0.78); border-color: rgba(255,255,255,0.06); box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
+html[data-theme="dark"] .card-title { color: #E8E5DE; }
+html[data-theme="dark"] .card-meta { color: #8E8C84; }
+html[data-theme="dark"] .card:hover { box-shadow: 0 12px 32px rgba(0,0,0,0.50); }
+
+/* KPIs body (light theme) - en dark no aplica porque están en header-band siempre */
+
+/* Cat list */
+html[data-theme="dark"] .cat-row .name { color: #E8E5DE; }
+html[data-theme="dark"] .cat-row .amount { color: #9A988F; }
+html[data-theme="dark"] .cat-bar { background: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .cat-item:hover { background: rgba(255,255,255,0.04); }
+html[data-theme="dark"] .adj-note { color: #6B6961; border-bottom-color: #3F3D38; }
+
+/* Top list / tx list / annual */
+html[data-theme="dark"] .top-row { border-bottom-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .top-row .desc, html[data-theme="dark"] .top-row .amt { color: #E8E5DE; }
+html[data-theme="dark"] .top-row .cat { color: #6B6961; }
+html[data-theme="dark"] .tx-row { border-bottom-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .tx-row:hover, html[data-theme="dark"] .top-row:hover, html[data-theme="dark"] .annual-row:not(.current):hover { background: rgba(255,255,255,0.03); }
+html[data-theme="dark"] .tx-desc { color: #E8E5DE; }
+html[data-theme="dark"] .tx-meta { color: #6B6961; }
+html[data-theme="dark"] .tx-amt { color: #E8E5DE; }
+html[data-theme="dark"] .annual-header { background: #18181C; color: #6B6961; border-bottom-color: rgba(255,255,255,0.10); }
+html[data-theme="dark"] .annual-row { border-bottom-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .annual-month { color: #E8E5DE; }
+html[data-theme="dark"] .annual-val { color: #BFBDB4; }
+html[data-theme="dark"] .annual-val.dim { color: #6B6961; }
+html[data-theme="dark"] .annual-row.current { background: rgba(255,255,255,0.04); }
+
+/* Form/modal */
+html[data-theme="dark"] .modal { background: #18181C; color: #E8E5DE; }
+html[data-theme="dark"] .modal-title { color: #E8E5DE; }
+html[data-theme="dark"] .modal-tabs { border-bottom-color: rgba(255,255,255,0.08); }
+html[data-theme="dark"] .modal-tab { color: #8E8C84; }
+html[data-theme="dark"] .modal-tab.active { color: #E8E5DE; }
+html[data-theme="dark"] .modal-close { color: #8E8C84; }
+html[data-theme="dark"] .modal-close:hover { color: #E8E5DE; }
+html[data-theme="dark"] .form-section input, html[data-theme="dark"] .form-section select { background: #232328; border-color: rgba(255,255,255,0.08); color: #E8E5DE; }
+html[data-theme="dark"] .form-section input:focus, html[data-theme="dark"] .form-section select:focus { border-color: #7768D4; }
+html[data-theme="dark"] .btn-cancel { background: transparent; color: #8E8C84; border-color: rgba(255,255,255,0.08); }
+html[data-theme="dark"] .btn-cancel:hover { background: rgba(255,255,255,0.04); color: #E8E5DE; }
+html[data-theme="dark"] .btn-save { background: #E8E5DE; color: #18181C; }
+html[data-theme="dark"] .btn-save:hover { background: #FFFFFF; }
+
+/* Chat */
+html[data-theme="dark"] .chat-msg.ai { background: rgba(255,255,255,0.06); color: #E8E5DE; }
+html[data-theme="dark"] .chat-input { background: #232328; border-color: rgba(255,255,255,0.08); color: #E8E5DE; }
+html[data-theme="dark"] .chat-input:focus { border-color: #7768D4; }
+html[data-theme="dark"] .chat-send { background: #E8E5DE; color: #18181C; }
+html[data-theme="dark"] .chat-send:hover:not(:disabled) { background: #FFFFFF; }
+html[data-theme="dark"] .chat-sugg { background: transparent; border-color: rgba(255,255,255,0.10); color: #8E8C84; }
+html[data-theme="dark"] .chat-sugg:hover { background: rgba(255,255,255,0.04); color: #E8E5DE; }
+
+/* Filtros tx */
+html[data-theme="dark"] .tx-search, html[data-theme="dark"] .tx-cat-filter { background: rgba(255,255,255,0.04); border-color: rgba(255,255,255,0.08); color: #E8E5DE; }
+html[data-theme="dark"] .tx-search:focus, html[data-theme="dark"] .tx-cat-filter:focus { border-color: #7768D4; }
+
+/* Detalle de categoría */
+html[data-theme="dark"] .cat-detail-summary { background: rgba(255,255,255,0.04); }
+html[data-theme="dark"] .cat-detail-summary .small { color: #8E8C84; }
+html[data-theme="dark"] .cat-detail-row { border-bottom-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .cat-detail-row .desc, html[data-theme="dark"] .cat-detail-row .amt { color: #E8E5DE; }
+html[data-theme="dark"] .cat-detail-row .date { color: #6B6961; }
+
+/* Misc */
+html[data-theme="dark"] .footer-meta { color: #6B6961; border-top-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .empty-state, html[data-theme="dark"] .loading { color: #8E8C84; }
+html[data-theme="dark"] .goal-meta, html[data-theme="dark"] .stat-label { color: #8E8C84; }
+html[data-theme="dark"] .stat-value, html[data-theme="dark"] .goal-amount .big { color: #E8E5DE; }
+html[data-theme="dark"] .cuota-row .name { color: #E8E5DE; }
+html[data-theme="dark"] .cuota-row .progress, html[data-theme="dark"] .cuota-meta { color: #8E8C84; }
+html[data-theme="dark"] .cuota-block + .cuota-block { border-top-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .insight-chip.good { background: rgba(29,158,117,0.12); color: #6EE7B7; border-color: rgba(29,158,117,0.25); }
+html[data-theme="dark"] .insight-chip.warn { background: rgba(216,90,48,0.12); color: #FCA5A5; border-color: rgba(216,90,48,0.25); }
+html[data-theme="dark"] .insight-chip.neutral { background: rgba(255,255,255,0.05); color: #BFBDB4; border-color: rgba(255,255,255,0.08); }
+html[data-theme="dark"] .goal-bar, html[data-theme="dark"] .proj-bar { background: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .stats-grid { border-top-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .fab { background: #E8E5DE; color: #18181C; }
+html[data-theme="dark"] .fab:hover { background: #FFFFFF; }
+html[data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.65); }
+html[data-theme="dark"] .tx-list::-webkit-scrollbar-thumb, html[data-theme="dark"] .annual-table::-webkit-scrollbar-thumb, html[data-theme="dark"] .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); }
+html[data-theme="dark"] .tx-list::-webkit-scrollbar-thumb:hover, html[data-theme="dark"] .annual-table::-webkit-scrollbar-thumb:hover, html[data-theme="dark"] .chat-messages::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
+
+/* Skeleton loader en dark */
+html[data-theme="dark"] .sk-card { background: rgba(24,24,28,0.78); border-color: rgba(255,255,255,0.06); box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
+html[data-theme="dark"] .sk-card::after { background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%); }
+html[data-theme="dark"] .sk-chip { background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.05) 75%); }
+html[data-theme="dark"] .sk-loading-text { color: #6B6961; }
 </style>
 </head>
 <body>
@@ -428,6 +567,17 @@ body {
 </div>
 
 <button class="fab" id="fab-add" aria-label="Cargar gasto o ingreso" title="Cargar nuevo">+</button>
+
+<!-- Modal: detalle de categoría -->
+<div class="modal-overlay" id="cat-detail-modal" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <div class="modal-title" id="cat-detail-title">Categoría</div>
+      <button class="modal-close" id="cat-detail-close" aria-label="Cerrar">×</button>
+    </div>
+    <div id="cat-detail-content"></div>
+  </div>
+</div>
 
 <div class="modal-overlay" id="modal-overlay" role="dialog" aria-modal="true">
   <div class="modal">
@@ -784,7 +934,10 @@ function render() {
     <div class="header-band">
       <div class="topbar">
         <select class="month-picker" id="month-picker">${monthOptions}</select>
-        <button class="refresh-btn" id="refresh-btn" onclick="refresh()"${_REFRESHING ? ' disabled' : ''}>${_REFRESHING ? '<span class="spinner"></span>Actualizando…' : 'Actualizar datos'}</button>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <button class="theme-toggle" id="theme-toggle" onclick="toggleTheme()" title="Cambiar tema" aria-label="Cambiar tema">${_THEME === 'dark' ? '☀' : '☾'}</button>
+          <button class="refresh-btn" id="refresh-btn" onclick="refresh()"${_REFRESHING ? ' disabled' : ''}>${_REFRESHING ? '<span class="spinner"></span>Actualizando…' : 'Actualizar datos'}</button>
+        </div>
       </div>
       <div class="header">
         <div>
@@ -840,7 +993,7 @@ function render() {
             const deltaHtml = c.delta !== null
               ? `<span class="cat-delta ${c.delta > 0 ? 'up' : 'down'}">${c.delta > 0 ? '↑' : '↓'}${Math.abs(c.delta).toFixed(0)}%</span>`
               : '';
-            return `<div class="cat-item">
+            return `<div class="cat-item" onclick="openCategoryDetail('${esc(c.name).replace(/'/g, "\\'")}')">
               <div class="cat-row">
                 <span class="name">${esc(c.name)}${adjNote}</span>
                 ${deltaHtml}
@@ -884,13 +1037,13 @@ function render() {
         </div>
         ${isCurrentMonth && daysRemaining > 0 ? `
           <div class="goal-amount">
-            <span class="big" style="color:${mes.saldo < 0 ? '#A32D2D' : '#1F1F1E'};">${fmtMoney(dailyFromSaldo)}</span>
+            <span class="big" data-count="${dailyFromSaldo}" style="color:${mes.saldo < 0 ? '#A32D2D' : 'inherit'};">${fmtMoney(dailyFromSaldo)}</span>
             <span class="small">por día · ${daysRemaining} días restantes</span>
           </div>
           <div class="goal-meta" style="margin-bottom:14px;">Basado en tu saldo real</div>
           <div style="font-size:11px;color:#ABA9A0;margin-bottom:4px;text-transform:uppercase;letter-spacing:.04em;font-weight:600;">Proyección fin de mes</div>
           <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:4px;">
-            <span style="font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;color:${projected > mes.ingreso ? '#A32D2D' : '#1F1F1E'};">${fmtMoney(projected)}</span>
+            <span data-count="${projected}" style="font-size:16px;font-weight:500;font-variant-numeric:tabular-nums;color:${projected > mes.ingreso ? '#A32D2D' : 'inherit'};">${fmtMoney(projected)}</span>
             <span style="font-size:12px;color:#79786F;">${projPct.toFixed(0)}% del ingreso</span>
           </div>
           <div class="proj-bar"><div class="proj-fill" style="width:${projPct.toFixed(1)}%;background:${projected > mes.ingreso ? '#A32D2D' : '#1D9E75'};"></div></div>
@@ -902,7 +1055,7 @@ function render() {
         <div class="stats-grid">
           <div>
             <div class="stat-label">Promedio actual</div>
-            <div class="stat-value" style="color:${(isCurrentMonth && dailyAvg > dailyFromSaldo && dailyFromSaldo > 0) ? '#A32D2D' : '#1F1F1E'};">${fmtMoney(dailyAvg)}/día</div>
+            <div class="stat-value" data-count="${dailyAvg}" data-suffix="/día" style="color:${(isCurrentMonth && dailyAvg > dailyFromSaldo && dailyFromSaldo > 0) ? '#A32D2D' : 'inherit'};">${fmtMoney(dailyAvg)}/día</div>
           </div>
           <div>
             <div class="stat-label">Días sin gastar</div>
@@ -1001,7 +1154,9 @@ function render() {
   document.getElementById('app').innerHTML = html;
 
   document.getElementById('month-picker')?.addEventListener('change', e => {
-    _CURRENT_MONTH = e.target.value; render();
+    _CURRENT_MONTH = e.target.value;
+    window._GOAL_CELEBRATED = false; // reset confetti al cambiar mes
+    render();
   });
 
   renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mes.mesNum, chartExtra);
@@ -1011,23 +1166,113 @@ function render() {
   setupAddForm();
 }
 
-/* ── Conteo animado de los KPIs ── */
+/* ── Conteo animado de valores monetarios ── */
 function animateCounts() {
   document.querySelectorAll('[data-count]').forEach(el => {
     const target = parseFloat(el.getAttribute('data-count'));
     if (isNaN(target)) return;
-    const duration = 750;
+    const suffix = el.getAttribute('data-suffix') || '';
+    const duration = 800;
     const startT = performance.now();
     function step(now) {
       const p = Math.min(1, (now - startT) / duration);
       const eased = 1 - Math.pow(1 - p, 3);
-      el.textContent = fmtMoney(target * eased);
+      el.textContent = fmtMoney(target * eased) + suffix;
       if (p < 1) requestAnimationFrame(step);
-      else el.textContent = fmtMoney(target);
+      else el.textContent = fmtMoney(target) + suffix;
     }
     requestAnimationFrame(step);
   });
 }
+
+/* ── Confetti al cumplir meta ── */
+function celebrateGoal() {
+  if (window._GOAL_CELEBRATED) return;
+  window._GOAL_CELEBRATED = true;
+  const emojis = ['🥚', '🎉', '✨', '💰', '⭐', '🥳'];
+  const count = 36;
+  for (let i = 0; i < count; i++) {
+    const el = document.createElement('div');
+    el.className = 'confetti-piece';
+    el.textContent = emojis[Math.floor(Math.random() * emojis.length)];
+    el.style.left = (Math.random() * 100) + 'vw';
+    el.style.animationDelay = (Math.random() * 0.6) + 's';
+    el.style.animationDuration = (1.6 + Math.random() * 1.2) + 's';
+    el.style.fontSize = (18 + Math.random() * 16) + 'px';
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 3500);
+  }
+}
+
+/* ── Theme toggle (dark/light) ── */
+let _THEME = (typeof localStorage !== 'undefined' && localStorage.getItem('misgastos_theme')) || 'light';
+function applyTheme(t) {
+  _THEME = t;
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem('misgastos_theme', t); } catch(e){}
+  // Re-render charts si están listos (ajustar colores)
+  if (_DATA) {
+    const btn = document.getElementById('theme-toggle');
+    if (btn) btn.innerHTML = (t === 'dark' ? '☀' : '☾');
+  }
+}
+function toggleTheme() {
+  applyTheme(_THEME === 'dark' ? 'light' : 'dark');
+  // Re-render charts con nuevos colores
+  if (_DATA) render();
+}
+// Aplicar tema en boot antes de pintar
+applyTheme(_THEME);
+
+/* ── Modal: detalle de categoría ── */
+function openCategoryDetail(catName) {
+  if (!_DATA) return;
+  const mes = _DATA.meses.find(m => m.key === _CURRENT_MONTH);
+  if (!mes) return;
+  const txs = mes.gastos
+    .filter(g => g.cat === catName && g.monto > 0)
+    .sort((a, b) => (b.fecha || 0) - (a.fecha || 0));
+  const total = txs.reduce((s, t) => s + (t.monto || 0), 0);
+  const color = CATEGORY_COLORS[catName] || '#888780';
+
+  document.getElementById('cat-detail-title').innerHTML = `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${color};margin-right:8px;vertical-align:middle;"></span>${esc(catName)}`;
+  const content = `
+    <div class="cat-detail-summary">
+      <div>
+        <div class="big">${fmtMoney(total)}</div>
+        <div class="small">${txs.length} movimiento${txs.length === 1 ? '' : 's'}</div>
+      </div>
+      <div style="text-align:right;">
+        <div class="small">Promedio</div>
+        <div style="font-size:14px;font-weight:500;font-variant-numeric:tabular-nums;">${fmtMoney(txs.length ? total/txs.length : 0)}</div>
+      </div>
+    </div>
+    <div class="cat-detail-list">
+      ${txs.length === 0 ? '<div class="goal-meta" style="text-align:center;padding:20px;">Sin movimientos.</div>' :
+        txs.map(t => `<div class="cat-detail-row">
+          <div class="left">
+            <span class="desc">${esc((t.desc || '').trim() || '—')}</span>
+            <span class="date">${fmtDay(t.fecha)}${t.cuenta ? ' · ' + esc(t.cuenta) : ''}</span>
+          </div>
+          <span class="amt">${fmtMoney(t.monto)}</span>
+        </div>`).join('')}
+    </div>
+  `;
+  document.getElementById('cat-detail-content').innerHTML = content;
+  document.getElementById('cat-detail-modal').classList.add('show');
+}
+function closeCategoryDetail() {
+  document.getElementById('cat-detail-modal').classList.remove('show');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('cat-detail-close')?.addEventListener('click', closeCategoryDetail);
+  document.getElementById('cat-detail-modal')?.addEventListener('click', e => {
+    if (e.target.id === 'cat-detail-modal') closeCategoryDetail();
+  });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') closeCategoryDetail();
+  });
+});
 
 function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, extra, _try) {
   // Chart.js carga diferido: si todavía no está listo, reintentamos en breve
@@ -1038,6 +1283,12 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, ex
   }
   extra = extra || {};
   const tickFont = { size: 11, family: "'Inter', system-ui, sans-serif" };
+  // Colores adaptados al tema
+  const isDark = _THEME === 'dark';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : '#F2F1ED';
+  const tickColor = isDark ? '#8E8C84' : '#79786F';
+  const donutBorder = isDark ? '#18181C' : '#FFFFFF';
+  const paceLineColor = isDark ? '#3F3D38' : '#C9C4B9';
 
   // Donut — categorías
   const donutCanvas = document.getElementById('chart-donut');
@@ -1047,7 +1298,7 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, ex
       type: 'doughnut',
       data: {
         labels: catEntries.map(c => c.name),
-        datasets: [{ data: catEntries.map(c => c.amount), backgroundColor: catEntries.map(c => CATEGORY_COLORS[c.name] || '#888780'), borderWidth: 2, borderColor: '#FFFFFF', hoverBorderWidth: 0 }]
+        datasets: [{ data: catEntries.map(c => c.amount), backgroundColor: catEntries.map(c => CATEGORY_COLORS[c.name] || '#888780'), borderWidth: 2, borderColor: donutBorder, hoverBorderWidth: 0 }]
       },
       options: {
         responsive: true, maintainAspectRatio: false, cutout: '65%',
@@ -1082,12 +1333,12 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, ex
         animation: { duration: 1000, easing: 'easeOutQuart' },
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { position: 'top', align: 'end', labels: { font: tickFont, color: '#79786F', boxWidth: 10, boxHeight: 10, padding: 16 } },
+          legend: { position: 'top', align: 'end', labels: { font: tickFont, color: tickColor, boxWidth: 10, boxHeight: 10, padding: 16 } },
           tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + fmtMoney(ctx.raw) } }
         },
         scales: {
-          x: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F' } },
-          y: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) } }
+          x: { grid: { color: gridColor }, ticks: { font: tickFont, color: tickColor } },
+          y: { grid: { color: gridColor }, ticks: { font: tickFont, color: tickColor, callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) } }
         }
       }
     });
@@ -1121,8 +1372,8 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, ex
           tooltip: { callbacks: { label: ctx => ' ' + fmtMoney(ctx.raw) } }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { font: tickFont, color: '#79786F' } },
-          y: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) } }
+          x: { grid: { display: false }, ticks: { font: tickFont, color: tickColor } },
+          y: { grid: { color: gridColor }, ticks: { font: tickFont, color: tickColor, callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) } }
         }
       }
     });
@@ -1144,7 +1395,7 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, ex
         labels: dLabels,
         datasets: [
           { label: 'Gastado', data: cumPadded, borderColor: overPace ? '#A32D2D' : '#1D9E75', backgroundColor: overPace ? 'rgba(163,45,45,0.07)' : 'rgba(29,158,117,0.07)', fill: true, tension: 0.25, pointRadius: 0, pointHoverRadius: 4, borderWidth: 2 },
-          { label: 'Ritmo presupuesto', data: pace, borderColor: '#C9C4B9', backgroundColor: 'transparent', fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5, borderDash: [5,4] }
+          { label: 'Ritmo presupuesto', data: pace, borderColor: paceLineColor, backgroundColor: 'transparent', fill: false, tension: 0, pointRadius: 0, borderWidth: 1.5, borderDash: [5,4] }
         ]
       },
       options: {
@@ -1152,12 +1403,12 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, ex
         animation: { duration: 900, easing: 'easeOutQuart' },
         interaction: { mode: 'index', intersect: false },
         plugins: {
-          legend: { position: 'top', align: 'end', labels: { font: tickFont, color: '#79786F', boxWidth: 10, boxHeight: 10, padding: 14 } },
+          legend: { position: 'top', align: 'end', labels: { font: tickFont, color: tickColor, boxWidth: 10, boxHeight: 10, padding: 14 } },
           tooltip: { callbacks: { title: items => 'Día ' + items[0].label, label: ctx => (ctx.raw == null ? '' : ' ' + ctx.dataset.label + ': ' + fmtMoney(ctx.raw)) } }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { font: tickFont, color: '#79786F', maxTicksLimit: 8 } },
-          y: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F', callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) }, beginAtZero: true }
+          x: { grid: { display: false }, ticks: { font: tickFont, color: tickColor, maxTicksLimit: 8 } },
+          y: { grid: { color: gridColor }, ticks: { font: tickFont, color: tickColor, callback: v => '$' + (v >= 1000 ? (v/1000).toFixed(0) + 'k' : v) }, beginAtZero: true }
         }
       }
     });
@@ -1189,8 +1440,8 @@ function renderCharts(catEntries, evolMeses, weeklyData, daysInMonth, mesNum, ex
           tooltip: { callbacks: { label: ctx => ' Ahorro: ' + ctx.raw + '% del ingreso' } }
         },
         scales: {
-          x: { grid: { display: false }, ticks: { font: tickFont, color: '#79786F' } },
-          y: { grid: { color: '#F2F1ED' }, ticks: { font: tickFont, color: '#79786F', callback: v => v + '%' }, beginAtZero: true }
+          x: { grid: { display: false }, ticks: { font: tickFont, color: tickColor } },
+          y: { grid: { color: gridColor }, ticks: { font: tickFont, color: tickColor, callback: v => v + '%' }, beginAtZero: true }
         }
       }
     });
@@ -1362,14 +1613,17 @@ function askAssistant(question) {
 function renderGoal(meta) {
   const pct = meta.objetivo > 0 ? meta.acumulado / meta.objetivo : 0;
   const daysLeft = meta.limite ? Math.max(0, Math.ceil((meta.limite - Date.now()) / 86400000)) : 0;
+  const completed = pct >= 1;
+  // disparar confetti si está cumplida
+  if (completed) setTimeout(celebrateGoal, 700);
   return `<div class="card">
-    <div class="card-header"><div class="card-title">Meta · ${esc(meta.nombre)}</div></div>
+    <div class="card-header"><div class="card-title">Meta · ${esc(meta.nombre)}${completed ? ' 🎉' : ''}</div></div>
     <div class="goal-amount">
-      <span class="big">${fmtMoney(meta.acumulado)}</span>
+      <span class="big" data-count="${meta.acumulado}">${fmtMoney(meta.acumulado)}</span>
       <span class="small">de ${fmtMoney(meta.objetivo)}</span>
     </div>
-    <div class="goal-bar"><div class="goal-fill" style="width:${(pct*100).toFixed(1)}%;"></div></div>
-    <div class="goal-meta">${(pct*100).toFixed(0)}% · faltan ${fmtMoney(meta.objetivo - meta.acumulado)}${daysLeft ? ' en ' + daysLeft + ' días' : ''}</div>
+    <div class="goal-bar"><div class="goal-fill" style="width:${Math.min(100,pct*100).toFixed(1)}%;background:${completed ? '#1D9E75' : '#1D9E75'};"></div></div>
+    <div class="goal-meta">${completed ? '¡Meta cumplida!' : (pct*100).toFixed(0) + '% · faltan ' + fmtMoney(meta.objetivo - meta.acumulado) + (daysLeft ? ' en ' + daysLeft + ' días' : '')}</div>
   </div>`;
 }
 
