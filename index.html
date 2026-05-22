@@ -34,23 +34,23 @@ html, body { background: #E8E5DE; min-height: 100vh; }
 
 /* ── Fondo animado tipo "aurora" (puro CSS, ~0 KB) ── */
 .bg-orbs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
-.bg-orbs .orb { position: absolute; border-radius: 50%; filter: blur(72px); will-change: transform; }
-.orb-1 { width: 46vw; height: 46vw; top: -8%; left: -6%;
-  background: radial-gradient(circle at center, rgba(216,90,48,0.34), rgba(216,90,48,0) 70%);
+.bg-orbs .orb { position: absolute; border-radius: 50%; filter: blur(60px); will-change: transform; }
+.orb-1 { width: 48vw; height: 48vw; top: -10%; left: -8%;
+  background: radial-gradient(circle at center, rgba(216,90,48,0.55), rgba(216,90,48,0) 70%);
   animation: orbFloat1 24s ease-in-out infinite alternate; }
-.orb-2 { width: 42vw; height: 42vw; bottom: -10%; right: -8%;
-  background: radial-gradient(circle at center, rgba(99,112,66,0.30), rgba(99,112,66,0) 70%);
+.orb-2 { width: 44vw; height: 44vw; bottom: -12%; right: -10%;
+  background: radial-gradient(circle at center, rgba(99,112,66,0.50), rgba(99,112,66,0) 70%);
   animation: orbFloat2 30s ease-in-out infinite alternate; }
-.orb-3 { width: 38vw; height: 38vw; top: 36%; left: 40%;
-  background: radial-gradient(circle at center, rgba(83,70,176,0.22), rgba(83,70,176,0) 70%);
+.orb-3 { width: 40vw; height: 40vw; top: 34%; left: 38%;
+  background: radial-gradient(circle at center, rgba(83,70,176,0.46), rgba(83,70,176,0) 70%);
   animation: orbFloat3 27s ease-in-out infinite alternate; }
-.orb-4 { width: 34vw; height: 34vw; top: 6%; right: 20%;
-  background: radial-gradient(circle at center, rgba(193,142,72,0.32), rgba(193,142,72,0) 70%);
+.orb-4 { width: 36vw; height: 36vw; top: 4%; right: 16%;
+  background: radial-gradient(circle at center, rgba(193,142,72,0.52), rgba(193,142,72,0) 70%);
   animation: orbFloat4 33s ease-in-out infinite alternate; }
-@keyframes orbFloat1 { from { transform: translate(0,0) scale(1); }    to { transform: translate(14vw, 16vh) scale(1.18); } }
-@keyframes orbFloat2 { from { transform: translate(0,0) scale(1); }    to { transform: translate(-16vw, -12vh) scale(1.12); } }
-@keyframes orbFloat3 { from { transform: translate(0,0) scale(0.95); } to { transform: translate(-12vw, 14vh) scale(1.1); } }
-@keyframes orbFloat4 { from { transform: translate(0,0) scale(1.05); } to { transform: translate(10vw, -14vh) scale(0.92); } }
+@keyframes orbFloat1 { from { transform: translate(0,0) scale(1); }    to { transform: translate(16vw, 18vh) scale(1.2); } }
+@keyframes orbFloat2 { from { transform: translate(0,0) scale(1); }    to { transform: translate(-18vw, -14vh) scale(1.15); } }
+@keyframes orbFloat3 { from { transform: translate(0,0) scale(0.95); } to { transform: translate(-14vw, 16vh) scale(1.12); } }
+@keyframes orbFloat4 { from { transform: translate(0,0) scale(1.05); } to { transform: translate(12vw, -16vh) scale(0.9); } }
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
   color: #1F1F1E; font-size: 14px; line-height: 1.5;
@@ -127,7 +127,7 @@ body {
 .row-1-1 { grid-template-columns: 1fr 1fr; }
 .row-1-15 { grid-template-columns: 1fr 1.5fr; }
 
-.card { background: #FFFFFF; border: 1px solid #E8E5DE; border-radius: 14px; padding: 22px 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); }
+.card { background: rgba(255,255,255,0.82); border: 1px solid rgba(255,255,255,0.6); border-radius: 14px; padding: 22px 24px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
 .card-header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 18px; }
 .card-title { font-size: 13px; font-weight: 500; color: #1F1F1E; letter-spacing: -0.005em; }
 .card-meta { font-size: 12px; color: #79786F; font-variant-numeric: tabular-nums; }
