@@ -570,7 +570,7 @@ function renderFromCache() {
   } catch (e) { _CACHE_SIG = null; return false; }
 }
 
-function load() {
+function load(forceFresh) {
   // En la primera carga, mostramos la caché de inmediato (sensación instantánea)
   _REFRESHING = true;
   if (!_DATA) renderFromCache();
@@ -586,7 +586,7 @@ function load() {
     onError(new Error('No se pudo cargar (timeout). Verificá que la URL de Apps Script esté bien.'));
   }, 25000);
   window[cbName] = function(data) { clearTimeout(timeoutId); cleanup(); onData(data); };
-  script.src = APPS_SCRIPT_URL + '?callback=' + cbName + '&t=' + Date.now();
+  script.src = APPS_SCRIPT_URL + '?callback=' + cbName + (forceFresh ? '&nocache=1' : '') + '&t=' + Date.now();
   script.onerror = function() { clearTimeout(timeoutId); cleanup(); onError(new Error('Error al cargar. Revisá el deployment.')); };
   document.body.appendChild(script);
 }
@@ -594,7 +594,7 @@ function load() {
 function refresh() {
   const btn = document.getElementById('refresh-btn');
   if (btn) { btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>Actualizando…'; }
-  load();
+  load(true); // fuerza datos frescos salteando la caché del backend
 }
 function clearRefreshing() {
   _REFRESHING = false;
