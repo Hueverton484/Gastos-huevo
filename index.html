@@ -410,7 +410,7 @@ function getWeeklyData(gastos, daysInMonth) {
   const weeks = Array(weekCount).fill(0);
   gastos.forEach(g => {
     if (!g.fecha || g.cat === 'Ahorro') return;
-    const day = parseInt((g.fecha || '').split('-')[2] || '0');
+    const day = parseInt((String(g.fecha || '')).split('-')[2] || '0');
     if (!day) return;
     const idx = Math.min(weekCount - 1, Math.floor((day - 1) / 7));
     weeks[idx] += g.monto || 0;
