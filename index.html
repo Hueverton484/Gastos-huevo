@@ -66,8 +66,73 @@ body {
 }
 .app {
   max-width: 1080px; margin: 0 auto; position: relative; z-index: 1;
-  padding: max(36px, env(safe-area-inset-top, 36px)) max(32px, env(safe-area-inset-right, 32px)) max(80px, calc(env(safe-area-inset-bottom, 0px) + 60px)) max(32px, env(safe-area-inset-left, 32px));
+  padding: max(36px, env(safe-area-inset-top, 36px)) max(32px, env(safe-area-inset-right, 32px)) calc(96px + env(safe-area-inset-bottom, 0px)) max(32px, env(safe-area-inset-left, 32px));
 }
+.tab-content { animation: fadeInUp 0.4s cubic-bezier(0.22, 1, 0.36, 1) both; }
+.tab-content[hidden] { display: none !important; }
+
+/* ═══════════ Barra inferior de solapas ═══════════ */
+.tab-bar {
+  position: fixed; bottom: 0; left: 0; right: 0;
+  height: 64px; padding-bottom: env(safe-area-inset-bottom, 0px);
+  background: rgba(255,255,255,0.88);
+  -webkit-backdrop-filter: saturate(180%) blur(22px);
+  backdrop-filter: saturate(180%) blur(22px);
+  border-top: 1px solid rgba(0,0,0,0.06);
+  display: flex; align-items: stretch; z-index: 50;
+  box-shadow: 0 -2px 24px rgba(0,0,0,0.05);
+}
+.tab-btn {
+  flex: 1; background: transparent; border: none;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 3px; cursor: pointer; font-family: inherit;
+  color: #79786F; padding: 8px 4px;
+  transition: color 0.2s ease, transform 0.2s ease;
+  position: relative;
+}
+.tab-btn .tab-icon { font-size: 20px; line-height: 1; transition: transform 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+.tab-btn .tab-label { font-size: 10.5px; font-weight: 500; letter-spacing: 0.01em; }
+.tab-btn:hover { color: #1F1F1E; }
+.tab-btn.active { color: #1F1F1E; }
+.tab-btn.active .tab-icon { transform: scale(1.18) translateY(-2px); }
+.tab-btn.active::before {
+  content: ''; position: absolute; top: 0; left: 30%; right: 30%;
+  height: 2.5px; background: #1F1F1E; border-radius: 0 0 3px 3px;
+  animation: tabIndicator 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes tabIndicator { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ═══════════ Placeholders de solapas vacías ═══════════ */
+.placeholder-hero {
+  text-align: center; padding: 80px 24px 60px;
+  display: flex; flex-direction: column; align-items: center; gap: 18px;
+}
+.placeholder-icon {
+  width: 96px; height: 96px; border-radius: 24px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 48px; background: rgba(255,255,255,0.65);
+  border: 1px solid rgba(255,255,255,0.5);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+  backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+  animation: floatY 4s ease-in-out infinite alternate;
+}
+@keyframes floatY { from { transform: translateY(0); } to { transform: translateY(-8px); } }
+.placeholder-title { font-size: 28px; font-weight: 500; letter-spacing: -0.02em; color: #1F1F1E; }
+.placeholder-subtitle { font-size: 14px; color: #79786F; max-width: 440px; line-height: 1.55; }
+.placeholder-features { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; margin-top: 28px; width: 100%; max-width: 640px; }
+.feature-card { background: rgba(255,255,255,0.7); border: 1px solid rgba(255,255,255,0.5); border-radius: 14px; padding: 18px 16px; text-align: left; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transition: transform 0.22s ease, box-shadow 0.22s ease; }
+.feature-card:hover { transform: translateY(-3px); box-shadow: 0 12px 32px rgba(0,0,0,0.10); }
+.feature-emoji { font-size: 22px; margin-bottom: 8px; display: block; }
+.feature-name { font-size: 13px; font-weight: 600; color: #1F1F1E; margin-bottom: 3px; }
+.feature-desc { font-size: 11.5px; color: #79786F; line-height: 1.4; }
+.placeholder-cta {
+  margin-top: 18px; padding: 10px 18px;
+  background: #1F1F1E; color: #fff; border: none; border-radius: 10px;
+  font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+  transition: transform 0.18s ease, background 0.18s ease;
+}
+.placeholder-cta:hover { background: #5346B0; transform: translateY(-2px); }
+.placeholder-cta:active { transform: translateY(0); }
 
 /* ── Header band oscuro ── */
 .header-band {
@@ -252,11 +317,11 @@ body {
 /* FAB y modal */
 .fab {
   position: fixed;
-  bottom: max(24px, calc(env(safe-area-inset-bottom, 0px) + 24px));
-  right: max(24px, calc(env(safe-area-inset-right, 0px) + 24px));
+  bottom: calc(80px + env(safe-area-inset-bottom, 0px));
+  right: max(20px, calc(env(safe-area-inset-right, 0px) + 20px));
   width: 56px; height: 56px; background: #1F1F1E; color: #FFFFFF;
   border: none; border-radius: 50%; font-size: 26px; font-weight: 400;
-  cursor: pointer; z-index: 100; font-family: inherit; line-height: 1;
+  cursor: pointer; z-index: 60; font-family: inherit; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 4px 16px rgba(0,0,0,0.25);
 }
@@ -522,6 +587,23 @@ html[data-theme="dark"] .modal-overlay { background: rgba(0,0,0,0.65); }
 html[data-theme="dark"] .tx-list::-webkit-scrollbar-thumb, html[data-theme="dark"] .annual-table::-webkit-scrollbar-thumb, html[data-theme="dark"] .chat-messages::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); }
 html[data-theme="dark"] .tx-list::-webkit-scrollbar-thumb:hover, html[data-theme="dark"] .annual-table::-webkit-scrollbar-thumb:hover, html[data-theme="dark"] .chat-messages::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); }
 
+/* Tab bar en dark */
+html[data-theme="dark"] .tab-bar { background: rgba(18,18,22,0.88); border-top-color: rgba(255,255,255,0.06); box-shadow: 0 -2px 24px rgba(0,0,0,0.35); }
+html[data-theme="dark"] .tab-btn { color: #8E8C84; }
+html[data-theme="dark"] .tab-btn:hover { color: #E8E5DE; }
+html[data-theme="dark"] .tab-btn.active { color: #E8E5DE; }
+html[data-theme="dark"] .tab-btn.active::before { background: #E8E5DE; }
+
+/* Placeholders en dark */
+html[data-theme="dark"] .placeholder-icon { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.08); box-shadow: 0 10px 40px rgba(0,0,0,0.4); }
+html[data-theme="dark"] .placeholder-title { color: #E8E5DE; }
+html[data-theme="dark"] .placeholder-subtitle { color: #8E8C84; }
+html[data-theme="dark"] .feature-card { background: rgba(24,24,28,0.65); border-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .feature-name { color: #E8E5DE; }
+html[data-theme="dark"] .feature-desc { color: #8E8C84; }
+html[data-theme="dark"] .placeholder-cta { background: #E8E5DE; color: #18181C; }
+html[data-theme="dark"] .placeholder-cta:hover { background: #FFFFFF; }
+
 /* Skeleton loader en dark */
 html[data-theme="dark"] .sk-card { background: rgba(24,24,28,0.78); border-color: rgba(255,255,255,0.06); box-shadow: 0 4px 20px rgba(0,0,0,0.35); }
 html[data-theme="dark"] .sk-card::after { background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%); }
@@ -538,35 +620,106 @@ html[data-theme="dark"] .sk-loading-text { color: #6B6961; }
   <div class="orb orb-4"></div>
   <div class="orb orb-5"></div>
 </div>
-<div id="app" class="app">
-  <div class="sk-band">
-    <div class="sk-toprow">
-      <div class="sk-dark" style="width:130px;height:32px;"></div>
-      <div class="sk-dark" style="width:130px;height:32px;"></div>
+<div class="app">
+  <!-- ═══════ Solapa: Gastos ═══════ -->
+  <div id="app" class="tab-content" data-tab="gastos">
+    <div class="sk-band">
+      <div class="sk-toprow">
+        <div class="sk-dark" style="width:130px;height:32px;"></div>
+        <div class="sk-dark" style="width:130px;height:32px;"></div>
+      </div>
+      <div class="sk-dark" style="width:200px;height:28px;margin-bottom:8px;"></div>
+      <div class="sk-dark" style="width:260px;height:14px;margin-bottom:26px;"></div>
+      <div class="sk-kpis">
+        <div class="sk-kpi"></div><div class="sk-kpi"></div><div class="sk-kpi"></div><div class="sk-kpi"></div>
+      </div>
     </div>
-    <div class="sk-dark" style="width:200px;height:28px;margin-bottom:8px;"></div>
-    <div class="sk-dark" style="width:260px;height:14px;margin-bottom:26px;"></div>
-    <div class="sk-kpis">
-      <div class="sk-kpi"></div><div class="sk-kpi"></div><div class="sk-kpi"></div><div class="sk-kpi"></div>
+    <div class="sk-chips">
+      <div class="sk-chip" style="width:200px;"></div>
+      <div class="sk-chip" style="width:240px;"></div>
+      <div class="sk-chip" style="width:170px;"></div>
+    </div>
+    <div class="sk-grid-21">
+      <div class="sk-card" style="height:400px;"></div>
+      <div class="sk-card" style="height:400px;"></div>
+    </div>
+    <div class="sk-grid-11">
+      <div class="sk-card" style="height:240px;"></div>
+      <div class="sk-card" style="height:240px;"></div>
+    </div>
+    <div class="sk-loading-text">Cargando tus finanzas…</div>
+  </div>
+
+  <!-- ═══════ Solapa: Comidas ═══════ -->
+  <div class="tab-content" data-tab="comidas" hidden>
+    <div class="placeholder-hero">
+      <div class="placeholder-icon">🍳</div>
+      <div class="placeholder-title">Comidas</div>
+      <div class="placeholder-subtitle">Registrá lo que comés cada día, llevá control de calorías y macros, y armá tu planificación semanal.</div>
+      <div class="placeholder-features">
+        <div class="feature-card"><span class="feature-emoji">📝</span><div class="feature-name">Diario de comidas</div><div class="feature-desc">Anotá desayuno, almuerzo, merienda y cena</div></div>
+        <div class="feature-card"><span class="feature-emoji">🔥</span><div class="feature-name">Calorías y macros</div><div class="feature-desc">Estimación automática por comida</div></div>
+        <div class="feature-card"><span class="feature-emoji">📅</span><div class="feature-name">Plan semanal</div><div class="feature-desc">Organizá la semana antes de hacer las compras</div></div>
+        <div class="feature-card"><span class="feature-emoji">📖</span><div class="feature-name">Recetas favoritas</div><div class="feature-desc">Guardalas para repetir cuando quieras</div></div>
+      </div>
+      <button class="placeholder-cta" onclick="alert('Decime exactamente qué querés trackear de tus comidas y lo armamos.')">Activar esta sección</button>
     </div>
   </div>
-  <div class="sk-chips">
-    <div class="sk-chip" style="width:200px;"></div>
-    <div class="sk-chip" style="width:240px;"></div>
-    <div class="sk-chip" style="width:170px;"></div>
+
+  <!-- ═══════ Solapa: Gym ═══════ -->
+  <div class="tab-content" data-tab="gym" hidden>
+    <div class="placeholder-hero">
+      <div class="placeholder-icon">💪</div>
+      <div class="placeholder-title">Entrenamientos</div>
+      <div class="placeholder-subtitle">Tu log completo de gimnasio y cardio: rutinas, series, evolución por ejercicio y récords personales.</div>
+      <div class="placeholder-features">
+        <div class="feature-card"><span class="feature-emoji">🏋️</span><div class="feature-name">Log de sesiones</div><div class="feature-desc">Ejercicios, peso, repes, series</div></div>
+        <div class="feature-card"><span class="feature-emoji">📈</span><div class="feature-name">Evolución por ejercicio</div><div class="feature-desc">Gráfico de tu progreso en cada movimiento</div></div>
+        <div class="feature-card"><span class="feature-emoji">🏆</span><div class="feature-name">PRs personales</div><div class="feature-desc">Tus marcas máximas, históricas</div></div>
+        <div class="feature-card"><span class="feature-emoji">🗓️</span><div class="feature-name">Calendario de entrenos</div><div class="feature-desc">Días entrenados del mes, racha actual</div></div>
+      </div>
+      <button class="placeholder-cta" onclick="alert('Decime cómo entrenás (rutina de fuerza, running, mixto) y armamos el tracker ideal.')">Activar esta sección</button>
+    </div>
   </div>
-  <div class="sk-grid-21">
-    <div class="sk-card" style="height:400px;"></div>
-    <div class="sk-card" style="height:400px;"></div>
+
+  <!-- ═══════ Solapa: Salud ═══════ -->
+  <div class="tab-content" data-tab="salud" hidden>
+    <div class="placeholder-hero">
+      <div class="placeholder-icon">❤️</div>
+      <div class="placeholder-title">Salud y bienestar</div>
+      <div class="placeholder-subtitle">Llevá control de tu peso, sueño, energía y otros indicadores de bienestar.</div>
+      <div class="placeholder-features">
+        <div class="feature-card"><span class="feature-emoji">⚖️</span><div class="feature-name">Peso corporal</div><div class="feature-desc">Registro semanal con gráfico de tendencia</div></div>
+        <div class="feature-card"><span class="feature-emoji">📏</span><div class="feature-name">Medidas</div><div class="feature-desc">Cintura, pecho, brazos, etc.</div></div>
+        <div class="feature-card"><span class="feature-emoji">😴</span><div class="feature-name">Horas de sueño</div><div class="feature-desc">Calidad y horas dormidas por día</div></div>
+        <div class="feature-card"><span class="feature-emoji">🧘</span><div class="feature-name">Energía y ánimo</div><div class="feature-desc">Cómo te sentís cada día (1-10)</div></div>
+      </div>
+      <button class="placeholder-cta" onclick="alert('Decime qué de salud te importa trackear y lo configuramos.')">Activar esta sección</button>
+    </div>
   </div>
-  <div class="sk-grid-11">
-    <div class="sk-card" style="height:240px;"></div>
-    <div class="sk-card" style="height:240px;"></div>
-  </div>
-  <div class="sk-loading-text">Cargando tus finanzas…</div>
 </div>
 
 <button class="fab" id="fab-add" aria-label="Cargar gasto o ingreso" title="Cargar nuevo">+</button>
+
+<!-- ═══════════════════ Barra inferior de solapas ═══════════════════ -->
+<nav class="tab-bar" role="tablist" aria-label="Secciones principales">
+  <button class="tab-btn active" data-tab="gastos" onclick="switchTab('gastos')" role="tab" aria-label="Gastos">
+    <span class="tab-icon">💰</span>
+    <span class="tab-label">Gastos</span>
+  </button>
+  <button class="tab-btn" data-tab="comidas" onclick="switchTab('comidas')" role="tab" aria-label="Comidas">
+    <span class="tab-icon">🍳</span>
+    <span class="tab-label">Comidas</span>
+  </button>
+  <button class="tab-btn" data-tab="gym" onclick="switchTab('gym')" role="tab" aria-label="Entrenamientos">
+    <span class="tab-icon">💪</span>
+    <span class="tab-label">Gym</span>
+  </button>
+  <button class="tab-btn" data-tab="salud" onclick="switchTab('salud')" role="tab" aria-label="Salud">
+    <span class="tab-icon">❤️</span>
+    <span class="tab-label">Salud</span>
+  </button>
+</nav>
 
 <!-- Modal: detalle de categoría -->
 <div class="modal-overlay" id="cat-detail-modal" role="dialog" aria-modal="true">
@@ -1203,6 +1356,30 @@ function celebrateGoal() {
     setTimeout(() => el.remove(), 3500);
   }
 }
+
+/* ── Tab navigation ── */
+let _CURRENT_TAB = (typeof localStorage !== 'undefined' && localStorage.getItem('misgastos_tab')) || 'gastos';
+function switchTab(tab) {
+  _CURRENT_TAB = tab;
+  try { localStorage.setItem('misgastos_tab', tab); } catch(e){}
+  document.querySelectorAll('.tab-content').forEach(el => {
+    if (el.getAttribute('data-tab') === tab) el.removeAttribute('hidden');
+    else el.setAttribute('hidden', '');
+  });
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-tab') === tab);
+  });
+  // Re-disparar animación de entrada en la solapa nueva
+  const active = document.querySelector('.tab-content[data-tab="' + tab + '"]');
+  if (active) { active.style.animation = 'none'; void active.offsetWidth; active.style.animation = ''; }
+  // FAB: por ahora solo en gastos
+  const fab = document.getElementById('fab-add');
+  if (fab) fab.style.display = (tab === 'gastos') ? 'flex' : 'none';
+  // Scroll arriba al cambiar de solapa
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}
+// Aplicar solapa inicial al cargar
+document.addEventListener('DOMContentLoaded', () => { switchTab(_CURRENT_TAB); });
 
 /* ── Theme toggle (dark/light) ── */
 let _THEME = (typeof localStorage !== 'undefined' && localStorage.getItem('misgastos_theme')) || 'light';
