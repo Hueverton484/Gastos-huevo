@@ -117,6 +117,22 @@ html[data-theme="dark"] .measure-row { border-color: rgba(255,255,255,0.06) !imp
 html[data-theme="dark"] .measure-row .m-delta.up { background: rgba(216,90,48,0.12); color: #FCA5A5; }
 html[data-theme="dark"] .measure-row .m-delta.down { background: rgba(29,158,117,0.12); color: #6EE7B7; }
 
+/* ═══════════ Setup banner ═══════════ */
+.setup-banner {
+  background: linear-gradient(135deg, #FEF3F0 0%, #FFFBF5 100%);
+  border: 1px solid #FACCBB; border-radius: 12px;
+  padding: 14px 18px; margin-top: 12px;
+  display: flex; align-items: center; gap: 12px; justify-content: space-between;
+  font-size: 13px;
+}
+.setup-banner .left { display: flex; align-items: center; gap: 10px; }
+.setup-banner .ico { font-size: 18px; }
+.setup-banner .text { color: #9B3B1E; }
+.setup-banner button { background: #1F1F1E; color: #fff; border: none; padding: 8px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; font-family: inherit; font-weight: 500; }
+.setup-banner button:hover { background: #5346B0; }
+html[data-theme="dark"] .setup-banner { background: rgba(216,90,48,0.08); border-color: rgba(216,90,48,0.20); }
+html[data-theme="dark"] .setup-banner .text { color: #FCA5A5; }
+
 /* ═══════════ Comidas ═══════════ */
 .comida-day { padding: 14px 0; border-bottom: 1px solid #F2F1ED; }
 .comida-day:last-child { border-bottom: none; }
@@ -822,6 +838,158 @@ html[data-theme="dark"] .sk-loading-text { color: #6B6961; }
   </button>
 </nav>
 
+<!-- Modal: configuración del Apps Script personal -->
+<div class="modal-overlay" id="setup-modal" role="dialog" aria-modal="true">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">Conectar tu spreadsheet personal</div>
+      <button class="modal-close" id="setup-close" aria-label="Cerrar">×</button>
+    </div>
+    <div style="font-size:13px;color:#79786F;line-height:1.55;margin-bottom:14px;">
+      Pegá acá la URL del Apps Script que desplegaste para cargar datos de Salud/Gym/Comidas. Termina en <code>/exec</code>.
+    </div>
+    <form class="form-section active" id="form-setup">
+      <input type="url" id="setup-url" placeholder="https://script.google.com/macros/s/…/exec" required style="width:100%;">
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" id="setup-cancel">Cancelar</button>
+        <button type="submit" class="btn-save">Conectar</button>
+      </div>
+    </form>
+    <div class="modal-status" id="setup-status"></div>
+    <details style="margin-top:18px;font-size:12px;color:#79786F;">
+      <summary style="cursor:pointer;color:#5346B0;">¿Cómo obtengo esa URL? (5 pasos)</summary>
+      <ol style="margin-top:10px;padding-left:20px;line-height:1.7;">
+        <li>Abrí tu spreadsheet personal en una pestaña</li>
+        <li>Menú <b>Extensiones → Apps Script</b></li>
+        <li>Borrá el contenido y pegá el código del archivo <code>Personal-AppsScript.gs</code> que está en la carpeta del proyecto</li>
+        <li>Guardá (Ctrl+S) → <b>Implementar → Nueva implementación</b> → tipo "Aplicación web" → Ejecutar como "Yo" / Acceso "Cualquier persona"</li>
+        <li>Copiá la URL que termina en <code>/exec</code> y pegala arriba</li>
+      </ol>
+    </details>
+  </div>
+</div>
+
+<!-- Modal: cargar peso -->
+<div class="modal-overlay" id="peso-modal" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">⚖️ Registrar peso</div>
+      <button class="modal-close" data-modal-close="peso-modal" aria-label="Cerrar">×</button>
+    </div>
+    <form class="form-section active" id="form-peso">
+      <input type="date" id="peso-fecha" required>
+      <input type="number" id="peso-valor" placeholder="Peso en kg (ej. 84.5)" inputmode="decimal" required min="20" max="300" step="0.1">
+      <input type="text" id="peso-nota" placeholder="Nota (opcional)">
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-modal-close="peso-modal">Cancelar</button>
+        <button type="submit" class="btn-save">Guardar peso</button>
+      </div>
+    </form>
+    <div class="modal-status" id="peso-status"></div>
+  </div>
+</div>
+
+<!-- Modal: cargar medidas -->
+<div class="modal-overlay" id="medidas-modal" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:440px;">
+    <div class="modal-header">
+      <div class="modal-title">📏 Registrar medidas</div>
+      <button class="modal-close" data-modal-close="medidas-modal" aria-label="Cerrar">×</button>
+    </div>
+    <form class="form-section active" id="form-medidas">
+      <input type="date" id="med-fecha" required>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <input type="number" id="med-cintura" placeholder="Cintura (cm)" inputmode="decimal" min="20" max="200" step="0.1">
+        <input type="number" id="med-cadera"  placeholder="Cadera (cm)"  inputmode="decimal" min="20" max="200" step="0.1">
+        <input type="number" id="med-pecho"   placeholder="Pecho (cm)"   inputmode="decimal" min="20" max="200" step="0.1">
+        <input type="number" id="med-brazo"   placeholder="Brazo (cm)"   inputmode="decimal" min="10" max="100" step="0.1">
+        <input type="number" id="med-muslo"   placeholder="Muslo (cm)"   inputmode="decimal" min="10" max="150" step="0.1">
+      </div>
+      <input type="text" id="med-notas" placeholder="Notas (opcional)">
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-modal-close="medidas-modal">Cancelar</button>
+        <button type="submit" class="btn-save">Guardar medidas</button>
+      </div>
+    </form>
+    <div class="modal-status" id="medidas-status"></div>
+  </div>
+</div>
+
+<!-- Modal: cargar sesión de gym -->
+<div class="modal-overlay" id="gym-modal" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <div class="modal-title">💪 Registrar sesión</div>
+      <button class="modal-close" data-modal-close="gym-modal" aria-label="Cerrar">×</button>
+    </div>
+    <form class="form-section active" id="form-gym">
+      <input type="date" id="gym-fecha" required>
+      <select id="gym-tipo" required>
+        <option value="">Tipo de sesión…</option>
+        <option>Pesas</option>
+        <option>Cardio</option>
+        <option>Pesas + cardio</option>
+        <option>Funcional</option>
+        <option>Calistenia</option>
+        <option>Otro</option>
+      </select>
+      <input type="number" id="gym-duracion" placeholder="Duración (minutos)" inputmode="numeric" min="1" max="600">
+      <select id="gym-intensidad">
+        <option value="">Intensidad (1-10)…</option>
+        <option value="1">1 – muy suave</option>
+        <option value="2">2</option>
+        <option value="3">3 – suave</option>
+        <option value="4">4</option>
+        <option value="5">5 – media</option>
+        <option value="6">6</option>
+        <option value="7">7 – alta</option>
+        <option value="8">8</option>
+        <option value="9">9 – muy alta</option>
+        <option value="10">10 – al máximo</option>
+      </select>
+      <input type="text" id="gym-notas" placeholder="Notas (opcional)">
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-modal-close="gym-modal">Cancelar</button>
+        <button type="submit" class="btn-save">Guardar sesión</button>
+      </div>
+    </form>
+    <div class="modal-status" id="gym-status"></div>
+  </div>
+</div>
+
+<!-- Modal: cargar comida -->
+<div class="modal-overlay" id="comida-modal" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <div class="modal-title">🍳 Registrar comida</div>
+      <button class="modal-close" data-modal-close="comida-modal" aria-label="Cerrar">×</button>
+    </div>
+    <form class="form-section active" id="form-comida">
+      <input type="date" id="com-fecha" required>
+      <select id="com-momento" required>
+        <option value="">Momento del día…</option>
+        <option>Desayuno</option>
+        <option>Almuerzo</option>
+        <option>Cena</option>
+      </select>
+      <input type="text" id="com-comida" placeholder="¿Qué comiste?" required>
+      <select id="com-categoria">
+        <option value="">Categoría…</option>
+        <option>Saludable</option>
+        <option>Normal</option>
+        <option>No saludable</option>
+        <option>Salteado</option>
+      </select>
+      <input type="text" id="com-notas" placeholder="Cómo me sentí (opcional)">
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-modal-close="comida-modal">Cancelar</button>
+        <button type="submit" class="btn-save">Guardar comida</button>
+      </div>
+    </form>
+    <div class="modal-status" id="comida-status"></div>
+  </div>
+</div>
+
 <!-- Modal: detalle de categoría -->
 <div class="modal-overlay" id="cat-detail-modal" role="dialog" aria-modal="true">
   <div class="modal" style="max-width:520px;">
@@ -1194,6 +1362,14 @@ function fmtMonthYear(ts) {
   return d.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
 }
 
+function setupBannerHtml() {
+  if (getPersonalUrl()) return '';
+  return `<div class="setup-banner">
+    <div class="left"><span class="ico">🔌</span><span class="text">Para cargar nuevos datos, conectá tu Apps Script personal.</span></div>
+    <button onclick="openSetupModal()">Conectar</button>
+  </div>`;
+}
+
 function renderSalud() {
   const container = document.getElementById('salud-content');
   if (!container) return;
@@ -1304,6 +1480,7 @@ function renderSalud() {
       </div>
     </div>` : ''}
 
+    ${setupBannerHtml()}
     <div class="footer-meta">Datos leídos del spreadsheet de salud</div>
   `;
 
@@ -1514,6 +1691,7 @@ function renderGym() {
       </div>
     </div>
 
+    ${setupBannerHtml()}
     <div class="footer-meta">Datos leídos del spreadsheet de gym</div>
   `;
 }
@@ -1700,6 +1878,7 @@ function renderComidas() {
         dayList.map(dayHtml).join('')}
     </div>
 
+    ${setupBannerHtml()}
     <div class="footer-meta">Datos leídos del spreadsheet de comidas</div>
   `;
 
@@ -1710,6 +1889,239 @@ function renderComidas() {
     loadComidasData(true);
   });
 }
+
+/* ════════════════════════════════════════════════════════
+   Personal Apps Script - cargar nuevos datos
+   ════════════════════════════════════════════════════════ */
+const PERSONAL_URL_KEY = 'misgastos_personal_url';
+function getPersonalUrl() {
+  try { return localStorage.getItem(PERSONAL_URL_KEY) || ''; } catch(e) { return ''; }
+}
+function setPersonalUrl(u) {
+  try { localStorage.setItem(PERSONAL_URL_KEY, u); } catch(e) {}
+}
+
+function todayLocalStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+}
+
+function openPersonalModal(modalId) {
+  // Si no hay URL configurada, primero pedimos la configuración
+  if (!getPersonalUrl()) {
+    openSetupModal();
+    return;
+  }
+  const overlay = document.getElementById(modalId);
+  if (!overlay) return;
+  // Pre-llenar fecha = hoy
+  const today = todayLocalStr();
+  overlay.querySelectorAll('input[type="date"]').forEach(inp => { if (!inp.value) inp.value = today; });
+  // Limpiar status
+  const status = overlay.querySelector('.modal-status');
+  if (status) { status.textContent = ''; status.className = 'modal-status'; }
+  overlay.classList.add('show');
+}
+
+function closePersonalModal(modalId) {
+  const overlay = document.getElementById(modalId);
+  if (overlay) overlay.classList.remove('show');
+}
+
+function openSaludChooser() {
+  // Pequeño chooser: peso o medidas
+  if (!getPersonalUrl()) { openSetupModal(); return; }
+  // Reutilizamos un modal liviano - acá lo hacemos simple con confirm()
+  const choice = window.prompt('¿Qué querés cargar?\n\nEscribí "p" para Peso o "m" para Medidas:', 'p');
+  if (!choice) return;
+  if (choice.toLowerCase().startsWith('p')) openPersonalModal('peso-modal');
+  else if (choice.toLowerCase().startsWith('m')) openPersonalModal('medidas-modal');
+}
+
+function openSetupModal() {
+  const overlay = document.getElementById('setup-modal');
+  if (!overlay) return;
+  const cur = getPersonalUrl();
+  document.getElementById('setup-url').value = cur;
+  document.getElementById('setup-status').textContent = '';
+  document.getElementById('setup-status').className = 'modal-status';
+  overlay.classList.add('show');
+}
+
+function submitPersonalJSONP(action, params, onResult) {
+  const baseUrl = getPersonalUrl();
+  if (!baseUrl) { onResult({ ok: false, error: 'URL del Apps Script no configurada' }); return; }
+  const cbName = '__perCb_' + Math.random().toString(36).slice(2, 9);
+  const script = document.createElement('script');
+  function cleanup() {
+    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+  }
+  const timeoutId = setTimeout(() => { cleanup(); onResult({ ok: false, error: 'Timeout' }); }, 20000);
+  window[cbName] = function(data) { clearTimeout(timeoutId); cleanup(); onResult(data); };
+  const qs = Object.keys(params).map(k => encodeURIComponent(k) + '=' + encodeURIComponent(params[k] == null ? '' : params[k])).join('&');
+  script.src = baseUrl + '?action=' + action + '&callback=' + cbName + '&' + qs + '&t=' + Date.now();
+  script.onerror = function() { clearTimeout(timeoutId); cleanup(); onResult({ ok: false, error: 'Error de red' }); };
+  document.head.appendChild(script);
+}
+
+function setStatus(elId, text, kind) {
+  const el = document.getElementById(elId);
+  if (!el) return;
+  el.textContent = text;
+  el.className = 'modal-status' + (kind ? ' ' + kind : '');
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // Cerrar modales con el atributo data-modal-close
+  document.querySelectorAll('[data-modal-close]').forEach(b => {
+    b.addEventListener('click', () => closePersonalModal(b.getAttribute('data-modal-close')));
+  });
+  // Cerrar al hacer click en el overlay
+  ['peso-modal','medidas-modal','gym-modal','comida-modal','setup-modal'].forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('click', e => { if (e.target === el) el.classList.remove('show'); });
+  });
+  // Escape para cerrar
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') {
+      ['peso-modal','medidas-modal','gym-modal','comida-modal','setup-modal'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) el.classList.remove('show');
+      });
+    }
+  });
+
+  // ─── Form setup (URL) ───
+  const setupForm = document.getElementById('form-setup');
+  if (setupForm) {
+    setupForm.addEventListener('submit', e => {
+      e.preventDefault();
+      const url = document.getElementById('setup-url').value.trim();
+      if (!/^https:\/\/script\.google\.com\/macros\/.*\/exec$/.test(url)) {
+        setStatus('setup-status', 'La URL debe terminar en /exec', 'error');
+        return;
+      }
+      setStatus('setup-status', 'Verificando…', '');
+      // Test ping
+      const cbName = '__pingCb_' + Date.now();
+      const script = document.createElement('script');
+      const cleanup = () => { try { delete window[cbName]; } catch(e){} if (script.parentNode) script.parentNode.removeChild(script); };
+      const to = setTimeout(() => { cleanup(); setStatus('setup-status', 'Sin respuesta — verificá la URL', 'error'); }, 15000);
+      window[cbName] = function(r) { clearTimeout(to); cleanup();
+        if (r && r.ok) {
+          setPersonalUrl(url);
+          setStatus('setup-status', '¡Conectado! Ya podés cargar datos.', 'success');
+          setTimeout(() => closePersonalModal('setup-modal'), 900);
+        } else {
+          setStatus('setup-status', 'Respondió pero con error: ' + (r && r.error || 'desconocido'), 'error');
+        }
+      };
+      script.src = url + '?action=ping&callback=' + cbName + '&t=' + Date.now();
+      script.onerror = () => { clearTimeout(to); cleanup(); setStatus('setup-status', 'No se pudo conectar', 'error'); };
+      document.head.appendChild(script);
+    });
+    document.getElementById('setup-cancel')?.addEventListener('click', () => closePersonalModal('setup-modal'));
+    document.getElementById('setup-close')?.addEventListener('click', () => closePersonalModal('setup-modal'));
+  }
+
+  // ─── Form peso ───
+  const formPeso = document.getElementById('form-peso');
+  if (formPeso) formPeso.addEventListener('submit', e => {
+    e.preventDefault();
+    setStatus('peso-status', 'Guardando…', '');
+    submitPersonalJSONP('add_peso', {
+      fecha: document.getElementById('peso-fecha').value,
+      peso:  document.getElementById('peso-valor').value,
+      nota:  document.getElementById('peso-nota').value
+    }, r => {
+      if (r && r.ok) {
+        setStatus('peso-status', '✓ Peso guardado', 'success');
+        formPeso.reset();
+        _PERSONAL_LOADED.salud = false;
+        loadSaludData(true);
+        setTimeout(() => closePersonalModal('peso-modal'), 800);
+      } else {
+        setStatus('peso-status', 'Error: ' + (r && r.error || 'desconocido'), 'error');
+      }
+    });
+  });
+
+  // ─── Form medidas ───
+  const formMed = document.getElementById('form-medidas');
+  if (formMed) formMed.addEventListener('submit', e => {
+    e.preventDefault();
+    setStatus('medidas-status', 'Guardando…', '');
+    submitPersonalJSONP('add_medida', {
+      fecha:   document.getElementById('med-fecha').value,
+      cintura: document.getElementById('med-cintura').value,
+      cadera:  document.getElementById('med-cadera').value,
+      pecho:   document.getElementById('med-pecho').value,
+      brazo:   document.getElementById('med-brazo').value,
+      muslo:   document.getElementById('med-muslo').value,
+      notas:   document.getElementById('med-notas').value
+    }, r => {
+      if (r && r.ok) {
+        setStatus('medidas-status', '✓ Medidas guardadas', 'success');
+        formMed.reset();
+        _PERSONAL_LOADED.salud = false;
+        loadSaludData(true);
+        setTimeout(() => closePersonalModal('medidas-modal'), 800);
+      } else {
+        setStatus('medidas-status', 'Error: ' + (r && r.error || 'desconocido'), 'error');
+      }
+    });
+  });
+
+  // ─── Form gym ───
+  const formGym = document.getElementById('form-gym');
+  if (formGym) formGym.addEventListener('submit', e => {
+    e.preventDefault();
+    setStatus('gym-status', 'Guardando…', '');
+    submitPersonalJSONP('add_actividad', {
+      fecha:      document.getElementById('gym-fecha').value,
+      tipo:       document.getElementById('gym-tipo').value,
+      duracion:   document.getElementById('gym-duracion').value,
+      intensidad: document.getElementById('gym-intensidad').value,
+      notas:      document.getElementById('gym-notas').value
+    }, r => {
+      if (r && r.ok) {
+        setStatus('gym-status', '✓ Sesión guardada', 'success');
+        formGym.reset();
+        _PERSONAL_LOADED.gym = false;
+        loadGymData(true);
+        setTimeout(() => closePersonalModal('gym-modal'), 800);
+      } else {
+        setStatus('gym-status', 'Error: ' + (r && r.error || 'desconocido'), 'error');
+      }
+    });
+  });
+
+  // ─── Form comida ───
+  const formCom = document.getElementById('form-comida');
+  if (formCom) formCom.addEventListener('submit', e => {
+    e.preventDefault();
+    setStatus('comida-status', 'Guardando…', '');
+    submitPersonalJSONP('add_comida', {
+      fecha:     document.getElementById('com-fecha').value,
+      momento:   document.getElementById('com-momento').value,
+      comida:    document.getElementById('com-comida').value,
+      categoria: document.getElementById('com-categoria').value,
+      notas:     document.getElementById('com-notas').value
+    }, r => {
+      if (r && r.ok) {
+        setStatus('comida-status', '✓ Comida guardada', 'success');
+        formCom.reset();
+        _PERSONAL_LOADED.comidas = false;
+        loadComidasData(true);
+        setTimeout(() => closePersonalModal('comida-modal'), 800);
+      } else {
+        setStatus('comida-status', 'Error: ' + (r && r.error || 'desconocido'), 'error');
+      }
+    });
+  });
+});
 
 function renderPesoChart(peso, _try) {
   if (typeof Chart === 'undefined') {
@@ -2158,13 +2570,13 @@ function switchTab(tab) {
   // Re-disparar animación de entrada en la solapa nueva
   const active = document.querySelector('.tab-content[data-tab="' + tab + '"]');
   if (active) { active.style.animation = 'none'; void active.offsetWidth; active.style.animation = ''; }
-  // FAB: por ahora solo en gastos
   const fab = document.getElementById('fab-add');
-  if (fab) fab.style.display = (tab === 'gastos') ? 'flex' : 'none';
   // Cargar datos de la solapa correspondiente (lazy load)
   if (tab === 'salud' && typeof loadSaludData === 'function') loadSaludData();
   if (tab === 'gym' && typeof loadGymData === 'function') loadGymData();
   if (tab === 'comidas' && typeof loadComidasData === 'function') loadComidasData();
+  // FAB visible en todas las solapas con acción contextual
+  if (fab) fab.style.display = 'flex';
   // Scroll arriba al cambiar de solapa
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
@@ -2466,7 +2878,13 @@ function setupAddForm() {
     sections.forEach(s => s.classList.toggle('active', s.id === 'form-' + t));
     setModalStatus('','');
   }
-  fab.addEventListener('click', openModal);
+  fab.addEventListener('click', () => {
+    // Router contextual del FAB según solapa activa
+    if (_CURRENT_TAB === 'gastos') openModal();
+    else if (_CURRENT_TAB === 'salud') openSaludChooser();
+    else if (_CURRENT_TAB === 'gym') openPersonalModal('gym-modal');
+    else if (_CURRENT_TAB === 'comidas') openPersonalModal('comida-modal');
+  });
   closeBtn.addEventListener('click', closeModal);
   document.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', closeModal));
   overlay.addEventListener('click', e => { if (e.target === overlay) closeModal(); });

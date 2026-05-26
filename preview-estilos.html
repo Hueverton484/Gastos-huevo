@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Preview de estilos</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  background: #111;
+  color: white;
+  padding: 32px 24px;
+}
+h1 { text-align: center; font-size: 22px; font-weight: 500; margin-bottom: 8px; color: #fff; }
+.subtitle { text-align: center; font-size: 13px; color: #888; margin-bottom: 40px; }
+
+.options { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 1100px; margin: 0 auto; }
+
+.option-label {
+  text-align: center; font-size: 13px; font-weight: 600;
+  margin-bottom: 12px; letter-spacing: 0.04em; text-transform: uppercase;
+}
+.badge {
+  display: inline-block; font-size: 11px; padding: 3px 10px;
+  border-radius: 20px; margin-left: 8px; font-weight: 500;
+  text-transform: none; letter-spacing: 0;
+}
+
+/* ─── OPCIÓN 1: DARK MODE ─── */
+.opt1 .option-label { color: #A78BFA; }
+.badge-dark { background: #2D2A4A; color: #A78BFA; }
+
+.mock-dark {
+  border-radius: 16px; overflow: hidden;
+  background: #0D0D14;
+  border: 1px solid rgba(167,139,250,0.15);
+  box-shadow: 0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.04);
+}
+.mock-dark .topbar {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.mock-dark .logo { font-size: 13px; font-weight: 600; color: #fff; }
+.mock-dark .month { font-size: 11px; color: #666; background: rgba(255,255,255,0.05); padding: 4px 10px; border-radius: 6px; }
+.mock-dark .body { padding: 16px; }
+.mock-dark .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.mock-dark .kpi {
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px; padding: 12px;
+  backdrop-filter: blur(10px);
+}
+.mock-dark .kpi-label { font-size: 9px; color: #555; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.mock-dark .kpi-val { font-size: 17px; font-weight: 600; }
+.mock-dark .kpi-val.green { color: #34D399; }
+.mock-dark .kpi-val.red { color: #F87171; }
+.mock-dark .kpi-val.purple { color: #A78BFA; }
+.mock-dark .kpi-val.white { color: #fff; }
+.mock-dark .kpi-delta { font-size: 9px; color: #34D399; margin-top: 3px; }
+.mock-dark .kpi-delta.neg { color: #F87171; }
+.mock-dark .card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.07);
+  border-radius: 10px; padding: 12px; margin-bottom: 8px;
+}
+.mock-dark .card-title { font-size: 10px; color: #666; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.mock-dark .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.mock-dark .bar-name { font-size: 10px; color: #aaa; width: 70px; flex-shrink: 0; }
+.mock-dark .bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.mock-dark .bar-fill { height: 100%; border-radius: 2px; }
+.mock-dark .bar-amt { font-size: 10px; color: #666; width: 44px; text-align: right; }
+.mock-dark .accent-line {
+  height: 2px; margin: -1px 0 0;
+  background: linear-gradient(90deg, #7C3AED, #2563EB, #059669);
+  border-radius: 0;
+}
+
+/* ─── OPCIÓN 2: GRADIENTE ─── */
+.opt2 .option-label { color: #60A5FA; }
+.badge-gradient { background: #1e3a5f; color: #60A5FA; }
+
+.mock-gradient {
+  border-radius: 16px; overflow: hidden;
+  position: relative;
+  box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+}
+.mock-gradient .bg {
+  position: absolute; inset: 0;
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 40%, #0f3460 70%, #1a1a2e 100%);
+}
+.mock-gradient .glow1 {
+  position: absolute; width: 180px; height: 180px;
+  background: radial-gradient(circle, rgba(99,102,241,0.25) 0%, transparent 70%);
+  top: -40px; left: -40px; pointer-events: none;
+}
+.mock-gradient .glow2 {
+  position: absolute; width: 160px; height: 160px;
+  background: radial-gradient(circle, rgba(16,185,129,0.2) 0%, transparent 70%);
+  bottom: 20px; right: -20px; pointer-events: none;
+}
+.mock-gradient .content { position: relative; z-index: 1; }
+.mock-gradient .topbar {
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.mock-gradient .logo { font-size: 13px; font-weight: 700; color: #fff; }
+.mock-gradient .month { font-size: 11px; color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.07); padding: 4px 10px; border-radius: 6px; }
+.mock-gradient .body { padding: 16px; }
+.mock-gradient .kpis { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px; }
+.mock-gradient .kpi {
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px; padding: 12px;
+  backdrop-filter: blur(20px);
+}
+.mock-gradient .kpi-label { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+.mock-gradient .kpi-val { font-size: 17px; font-weight: 700; color: #fff; }
+.mock-gradient .kpi-val.green { color: #6EE7B7; }
+.mock-gradient .kpi-val.red { color: #FCA5A5; }
+.mock-gradient .kpi-delta { font-size: 9px; color: #6EE7B7; margin-top: 3px; }
+.mock-gradient .kpi-delta.neg { color: #FCA5A5; }
+.mock-gradient .card {
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 12px; margin-bottom: 8px;
+  backdrop-filter: blur(20px);
+}
+.mock-gradient .card-title { font-size: 10px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+.mock-gradient .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.mock-gradient .bar-name { font-size: 10px; color: rgba(255,255,255,0.6); width: 70px; flex-shrink: 0; }
+.mock-gradient .bar-track { flex: 1; height: 4px; background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden; }
+.mock-gradient .bar-fill { height: 100%; border-radius: 2px; }
+.mock-gradient .bar-amt { font-size: 10px; color: rgba(255,255,255,0.35); width: 44px; text-align: right; }
+
+/* ─── OPCIÓN 3: LIGHT MEJORADO ─── */
+.opt3 .option-label { color: #F59E0B; }
+.badge-light { background: #3d2e00; color: #FBBF24; }
+
+.mock-light {
+  border-radius: 16px; overflow: hidden;
+  background: #F5F3EE;
+  border: 1px solid #E5E2DA;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.12);
+}
+.mock-light .header-band {
+  background: linear-gradient(135deg, #1F1F1E 0%, #3D3C38 100%);
+  padding: 16px;
+}
+.mock-light .header-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+.mock-light .logo { font-size: 13px; font-weight: 600; color: #fff; }
+.mock-light .month { font-size: 11px; color: rgba(255,255,255,0.5); }
+.mock-light .kpis-header { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.mock-light .kpi-h {
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 10px; padding: 10px;
+}
+.mock-light .kpi-label { font-size: 9px; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 5px; }
+.mock-light .kpi-val { font-size: 15px; font-weight: 600; color: #fff; }
+.mock-light .kpi-val.green { color: #6EE7B7; }
+.mock-light .kpi-val.red { color: #FCA5A5; }
+.mock-light .kpi-delta { font-size: 9px; color: #6EE7B7; margin-top: 2px; }
+.mock-light .kpi-delta.neg { color: #FCA5A5; }
+.mock-light .body { padding: 14px; }
+.mock-light .card {
+  background: #FFFFFF;
+  border: 1px solid #EAE8E3;
+  border-radius: 12px; padding: 12px; margin-bottom: 8px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+}
+.mock-light .card-title { font-size: 10px; color: #9E9B93; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; font-weight: 600; }
+.mock-light .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+.mock-light .bar-name { font-size: 10px; color: #4A4845; width: 70px; flex-shrink: 0; }
+.mock-light .bar-track { flex: 1; height: 4px; background: #F0EDE6; border-radius: 2px; overflow: hidden; }
+.mock-light .bar-fill { height: 100%; border-radius: 2px; }
+.mock-light .bar-amt { font-size: 10px; color: #A09D96; width: 44px; text-align: right; }
+
+/* Chart fake */
+.fake-chart { height: 52px; display: flex; align-items: flex-end; gap: 4px; margin-top: 4px; }
+.fake-bar { flex: 1; border-radius: 3px 3px 0 0; opacity: 0.85; }
+</style>
+</head>
+<body>
+
+<h1>¿Cómo querés que quede la app?</h1>
+<p class="subtitle">Tres estilos distintos — elegí el que más te gusta</p>
+
+<div class="options">
+
+  <!-- OPCIÓN 1: DARK MODE -->
+  <div class="opt1">
+    <div class="option-label">
+      Opción 1 — Dark Mode
+      <span class="badge badge-dark">Recomendado</span>
+    </div>
+    <div class="mock-dark">
+      <div class="accent-line"></div>
+      <div class="topbar">
+        <span class="logo">Mis Gastos</span>
+        <span class="month">Mayo 2025 ▾</span>
+      </div>
+      <div class="body">
+        <div class="kpis">
+          <div class="kpi">
+            <div class="kpi-label">Ingresos</div>
+            <div class="kpi-val green">$850.000</div>
+            <div class="kpi-delta">↑12% vs mes ant.</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Gastos</div>
+            <div class="kpi-val red">$520.000</div>
+            <div class="kpi-delta neg">↑8% vs mes ant.</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Ahorro</div>
+            <div class="kpi-val purple">$180.000</div>
+            <div class="kpi-delta">↑5% vs mes ant.</div>
+          </div>
+          <div class="kpi">
+            <div class="kpi-label">Saldo</div>
+            <div class="kpi-val white">$150.000</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Gastos por categoría</div>
+          <div class="bar-row">
+            <span class="bar-name">Comida</span>
+            <div class="bar-track"><div class="bar-fill" style="width:72%;background:#34D399"></div></div>
+            <span class="bar-amt">$124k</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name">Salidas</span>
+            <div class="bar-track"><div class="bar-fill" style="width:55%;background:#F87171"></div></div>
+            <span class="bar-amt">$95k</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name">Tarjeta</span>
+            <div class="bar-track"><div class="bar-fill" style="width:40%;background:#A78BFA"></div></div>
+            <span class="bar-amt">$68k</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name">Super</span>
+            <div class="bar-track"><div class="bar-fill" style="width:28%;background:#FBBF24"></div></div>
+            <span class="bar-amt">$48k</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Evolución mensual</div>
+          <div class="fake-chart">
+            <div class="fake-bar" style="height:45%;background:#34D399"></div>
+            <div class="fake-bar" style="height:60%;background:#34D399"></div>
+            <div class="fake-bar" style="height:50%;background:#34D399"></div>
+            <div class="fake-bar" style="height:80%;background:#34D399"></div>
+            <div class="fake-bar" style="height:70%;background:#34D399"></div>
+            <div class="fake-bar" style="height:90%;background:#34D399"></div>
+            <div class="fake-bar" style="height:40%;background:#F87171"></div>
+            <div class="fake-bar" style="height:55%;background:#F87171"></div>
+            <div class="fake-bar" style="height:48%;background:#F87171"></div>
+            <div class="fake-bar" style="height:65%;background:#F87171"></div>
+            <div class="fake-bar" style="height:52%;background:#F87171"></div>
+            <div class="fake-bar" style="height:70%;background:#F87171"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPCIÓN 2: GRADIENTE -->
+  <div class="opt2">
+    <div class="option-label">
+      Opción 2 — Gradiente
+      <span class="badge badge-gradient">Llamativo</span>
+    </div>
+    <div class="mock-gradient">
+      <div class="bg"></div>
+      <div class="glow1"></div>
+      <div class="glow2"></div>
+      <div class="content">
+        <div class="topbar">
+          <span class="logo">✦ Mis Gastos</span>
+          <span class="month">Mayo 2025 ▾</span>
+        </div>
+        <div class="body">
+          <div class="kpis">
+            <div class="kpi">
+              <div class="kpi-label">Ingresos</div>
+              <div class="kpi-val green">$850.000</div>
+              <div class="kpi-delta">↑12% vs mes ant.</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Gastos</div>
+              <div class="kpi-val red">$520.000</div>
+              <div class="kpi-delta neg">↑8% vs mes ant.</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Ahorro</div>
+              <div class="kpi-val" style="color:#C4B5FD">$180.000</div>
+              <div class="kpi-delta">↑5% vs mes ant.</div>
+            </div>
+            <div class="kpi">
+              <div class="kpi-label">Saldo</div>
+              <div class="kpi-val">$150.000</div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Gastos por categoría</div>
+            <div class="bar-row">
+              <span class="bar-name">Comida</span>
+              <div class="bar-track"><div class="bar-fill" style="width:72%;background:linear-gradient(90deg,#6EE7B7,#34D399)"></div></div>
+              <span class="bar-amt">$124k</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-name">Salidas</span>
+              <div class="bar-track"><div class="bar-fill" style="width:55%;background:linear-gradient(90deg,#FCA5A5,#F87171)"></div></div>
+              <span class="bar-amt">$95k</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-name">Tarjeta</span>
+              <div class="bar-track"><div class="bar-fill" style="width:40%;background:linear-gradient(90deg,#C4B5FD,#A78BFA)"></div></div>
+              <span class="bar-amt">$68k</span>
+            </div>
+            <div class="bar-row">
+              <span class="bar-name">Super</span>
+              <div class="bar-track"><div class="bar-fill" style="width:28%;background:linear-gradient(90deg,#FDE68A,#FBBF24)"></div></div>
+              <span class="bar-amt">$48k</span>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-title">Evolución mensual</div>
+            <div class="fake-chart">
+              <div class="fake-bar" style="height:45%;background:rgba(110,231,183,0.7)"></div>
+              <div class="fake-bar" style="height:60%;background:rgba(110,231,183,0.7)"></div>
+              <div class="fake-bar" style="height:50%;background:rgba(110,231,183,0.7)"></div>
+              <div class="fake-bar" style="height:80%;background:rgba(110,231,183,0.7)"></div>
+              <div class="fake-bar" style="height:70%;background:rgba(110,231,183,0.7)"></div>
+              <div class="fake-bar" style="height:90%;background:rgba(110,231,183,0.7)"></div>
+              <div class="fake-bar" style="height:40%;background:rgba(252,165,165,0.7)"></div>
+              <div class="fake-bar" style="height:55%;background:rgba(252,165,165,0.7)"></div>
+              <div class="fake-bar" style="height:48%;background:rgba(252,165,165,0.7)"></div>
+              <div class="fake-bar" style="height:65%;background:rgba(252,165,165,0.7)"></div>
+              <div class="fake-bar" style="height:52%;background:rgba(252,165,165,0.7)"></div>
+              <div class="fake-bar" style="height:70%;background:rgba(252,165,165,0.7)"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- OPCIÓN 3: LIGHT MEJORADO -->
+  <div class="opt3">
+    <div class="option-label">
+      Opción 3 — Light Premium
+      <span class="badge badge-light">Clásico</span>
+    </div>
+    <div class="mock-light">
+      <div class="header-band">
+        <div class="header-top">
+          <span class="logo">Mis Gastos</span>
+          <span class="month">Mayo 2025 ▾</span>
+        </div>
+        <div class="kpis-header">
+          <div class="kpi-h">
+            <div class="kpi-label">Ingresos</div>
+            <div class="kpi-val green">$850.000</div>
+            <div class="kpi-delta">↑12% vs mes ant.</div>
+          </div>
+          <div class="kpi-h">
+            <div class="kpi-label">Gastos</div>
+            <div class="kpi-val red">$520.000</div>
+            <div class="kpi-delta neg">↑8% vs mes ant.</div>
+          </div>
+          <div class="kpi-h">
+            <div class="kpi-label">Ahorro</div>
+            <div class="kpi-val green">$180.000</div>
+            <div class="kpi-delta">↑5% vs mes ant.</div>
+          </div>
+          <div class="kpi-h">
+            <div class="kpi-label">Saldo</div>
+            <div class="kpi-val">$150.000</div>
+          </div>
+        </div>
+      </div>
+      <div class="body">
+        <div class="card">
+          <div class="card-title">Gastos por categoría</div>
+          <div class="bar-row">
+            <span class="bar-name" style="color:#374151">Comida</span>
+            <div class="bar-track"><div class="bar-fill" style="width:72%;background:#1D9E75"></div></div>
+            <span class="bar-amt">$124k</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name" style="color:#374151">Salidas</span>
+            <div class="bar-track"><div class="bar-fill" style="width:55%;background:#D85A30"></div></div>
+            <span class="bar-amt">$95k</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name" style="color:#374151">Tarjeta</span>
+            <div class="bar-track"><div class="bar-fill" style="width:40%;background:#5346B0"></div></div>
+            <span class="bar-amt">$68k</span>
+          </div>
+          <div class="bar-row">
+            <span class="bar-name" style="color:#374151">Super</span>
+            <div class="bar-track"><div class="bar-fill" style="width:28%;background:#637042"></div></div>
+            <span class="bar-amt">$48k</span>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title">Evolución mensual</div>
+          <div class="fake-chart">
+            <div class="fake-bar" style="height:45%;background:#D1FAE5"></div>
+            <div class="fake-bar" style="height:60%;background:#D1FAE5"></div>
+            <div class="fake-bar" style="height:50%;background:#D1FAE5"></div>
+            <div class="fake-bar" style="height:80%;background:#1D9E75"></div>
+            <div class="fake-bar" style="height:70%;background:#1D9E75"></div>
+            <div class="fake-bar" style="height:90%;background:#1D9E75"></div>
+            <div class="fake-bar" style="height:40%;background:#FEE2E2"></div>
+            <div class="fake-bar" style="height:55%;background:#FEE2E2"></div>
+            <div class="fake-bar" style="height:48%;background:#FEE2E2"></div>
+            <div class="fake-bar" style="height:65%;background:#D85A30"></div>
+            <div class="fake-bar" style="height:52%;background:#D85A30"></div>
+            <div class="fake-bar" style="height:70%;background:#D85A30"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<p style="text-align:center;margin-top:32px;font-size:13px;color:#555;">
+  Decile a Claude cuál te gusta y lo aplica en el acto 🚀
+</p>
+
+</body>
+</html>
