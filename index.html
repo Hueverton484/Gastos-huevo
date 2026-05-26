@@ -1242,7 +1242,8 @@ const PERSONAL_CACHE_KEY = 'misgastos_personal_v1';
 let _PERSONAL = null;
 let _PERSONAL_LOADED = { salud: false, gym: false, comidas: false };
 
-function fetchSheetJSONP(sheetName) {
+function fetchSheetJSONP(sheetName, opts) {
+  opts = opts || {};
   return new Promise((resolve) => {
     const cbName = '__shCb_' + Math.random().toString(36).slice(2, 9);
     const script = document.createElement('script');
@@ -1250,14 +1251,21 @@ function fetchSheetJSONP(sheetName) {
       try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
       if (script.parentNode) script.parentNode.removeChild(script);
     }
-    const timeoutId = setTimeout(() => { cleanup(); resolve(null); }, 15000);
-    window[cbName] = function(d) { clearTimeout(timeoutId); cleanup(); resolve(parseGvizResponse(d)); };
-    const url = 'https://docs.google.com/spreadsheets/d/' + PERSONAL_SHEET_ID +
-                '/gviz/tq?tqx=responseHandler:' + cbName + ';out:json' +
-                '&sheet=' + encodeURIComponent(sheetName) +
-                '&t=' + Date.now();
+    const timeoutId = setTimeout(() => { cleanup(); console.warn('[fetchSheet] timeout:', sheetName); resolve(null); }, 15000);
+    window[cbName] = function(d) {
+      clearTimeout(timeoutId); cleanup();
+      const parsed = parseGvizResponse(d);
+      console.log('[fetchSheet]', sheetName, parsed ? (parsed.rows.length + ' rows, cols: ' + parsed.cols.join('|')) : 'null');
+      resolve(parsed);
+    };
+    let url = 'https://docs.google.com/spreadsheets/d/' + PERSONAL_SHEET_ID +
+              '/gviz/tq?tqx=responseHandler:' + cbName + ';out:json' +
+              '&sheet=' + encodeURIComponent(sheetName) +
+              '&headers=' + (opts.headers != null ? opts.headers : 1);
+    if (opts.range) url += '&range=' + encodeURIComponent(opts.range);
+    url += '&t=' + Date.now();
     script.src = url;
-    script.onerror = function() { clearTimeout(timeoutId); cleanup(); resolve(null); };
+    script.onerror = function() { clearTimeout(timeoutId); cleanup(); console.warn('[fetchSheet] error:', sheetName); resolve(null); };
     document.head.appendChild(script);
   });
 }
@@ -1296,33 +1304,53 @@ function num(v) {
 }
 
 function parsePeso(data) {
-  if (!data) return [];
+  if (!data || !data.cols) return [];
+  // Detectar columnas por nombre; si fallan, usar posición (0=fecha, 1=peso, 2=variación, 3=nota)
+  const cols = data.cols;
+  const findIdx = (re) => {
+    const i = cols.findIndex(c => re.test(c));
+    return i;
+  };
+  let idxFecha = findIdx(/fecha/i);   if (idxFecha < 0) idxFecha = 0;
+  let idxPeso  = findIdx(/peso/i);    if (idxPeso  < 0) idxPeso  = 1;
+  let idxVar   = findIdx(/variac/i);  if (idxVar   < 0) idxVar   = 2;
+  let idxNota  = findIdx(/nota/i);    if (idxNota  < 0) idxNota  = 3;
+  // Acceder por posición usando el nombre real de la columna (que guarda gviz)
+  const keys = cols.map((_, i) => cols[i] || ('col_' + i));
   return data.rows.map(r => {
-    // Buscar columnas por substring (los nombres pueden variar)
-    const fecha = r[Object.keys(r).find(k => /fecha/i.test(k)) || ''];
-    const peso = num(r[Object.keys(r).find(k => /peso/i.test(k) && !k.startsWith('_f_')) || '']);
-    const variacion = num(r[Object.keys(r).find(k => /variaci/i.test(k) && !k.startsWith('_f_')) || '']);
-    const nota = r[Object.keys(r).find(k => /nota/i.test(k) && !k.startsWith('_f_')) || ''] || '';
+    const fecha = r[keys[idxFecha]];
+    const peso = num(r[keys[idxPeso]]);
+    const variacion = num(r[keys[idxVar]]);
+    const nota = r[keys[idxNota]] || '';
     return { fecha: parseGsheetDate(fecha), peso, variacion: isNaN(variacion) ? null : variacion, nota };
   }).filter(r => r.fecha && !isNaN(r.peso))
     .sort((a, b) => a.fecha - b.fecha);
 }
 
 function parseMedidas(data) {
-  if (!data) return [];
-  return data.rows.map(r => {
-    const get = re => r[Object.keys(r).find(k => re.test(k) && !k.startsWith('_f_')) || ''];
-    return {
-      fecha: parseGsheetDate(get(/fecha/i)),
-      cintura: num(get(/cintura(?!.*\/)/i)),
-      cadera: num(get(/cadera/i)),
-      ratio: num(get(/ratio|cintura\/cadera|indice/i)),
-      pecho: num(get(/pecho/i)),
-      brazo: num(get(/brazo/i)),
-      muslo: num(get(/muslo/i)),
-      notas: get(/nota/i) || ''
-    };
-  }).filter(r => r.fecha && !isNaN(r.cintura))
+  if (!data || !data.cols) return [];
+  const cols = data.cols;
+  const keys = cols.map((_, i) => cols[i] || ('col_' + i));
+  const findIdx = (re) => cols.findIndex(c => re.test(c));
+  // Defaults posicionales: 0=fecha, 1=cintura, 2=cadera, 3=ratio, 4=pecho, 5=brazo, 6=muslo, 7=notas
+  let iF = findIdx(/fecha/i);              if (iF < 0) iF = 0;
+  let iCi = findIdx(/cintura(?!.*\/)/i);   if (iCi < 0) iCi = 1;
+  let iCa = findIdx(/cadera/i);            if (iCa < 0) iCa = 2;
+  let iR  = findIdx(/ratio|cintura\/cadera|indice/i); if (iR < 0) iR = 3;
+  let iP  = findIdx(/pecho/i);             if (iP < 0) iP = 4;
+  let iB  = findIdx(/brazo/i);             if (iB < 0) iB = 5;
+  let iM  = findIdx(/muslo/i);             if (iM < 0) iM = 6;
+  let iN  = findIdx(/nota/i);              if (iN < 0) iN = 7;
+  return data.rows.map(r => ({
+    fecha: parseGsheetDate(r[keys[iF]]),
+    cintura: num(r[keys[iCi]]),
+    cadera: num(r[keys[iCa]]),
+    ratio: num(r[keys[iR]]),
+    pecho: num(r[keys[iP]]),
+    brazo: num(r[keys[iB]]),
+    muslo: num(r[keys[iM]]),
+    notas: r[keys[iN]] || ''
+  })).filter(r => r.fecha && !isNaN(r.cintura))
     .sort((a, b) => a.fecha - b.fecha);
 }
 
@@ -1405,6 +1433,10 @@ function renderSalud() {
 
   container.innerHTML = `
     <div class="header-band">
+      <div class="topbar">
+        <div></div>
+        <button class="refresh-btn" onclick="loadSaludData(true)">Recargar</button>
+      </div>
       <div class="header" style="border-bottom:none;padding-bottom:0;margin-bottom:18px;">
         <div>
           <div class="title">Salud</div>
@@ -1491,17 +1523,22 @@ function renderSalud() {
 const GYM_MONTH_NAMES_SHORT = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 
 function parseActividad(data) {
-  if (!data) return [];
-  return data.rows.map(r => {
-    const get = re => r[Object.keys(r).find(k => re.test(k) && !k.startsWith('_f_')) || ''];
-    return {
-      fecha: parseGsheetDate(get(/fecha/i)),
-      tipo: get(/tipo/i) || '',
-      duracion: num(get(/duraci/i)),
-      intensidad: num(get(/intensi/i)),
-      notas: get(/nota/i) || ''
-    };
-  }).filter(r => r.fecha && r.tipo)
+  if (!data || !data.cols) return [];
+  const cols = data.cols;
+  const keys = cols.map((_, i) => cols[i] || ('col_' + i));
+  const findIdx = (re) => cols.findIndex(c => re.test(c));
+  let iF = findIdx(/fecha/i);    if (iF < 0) iF = 0;
+  let iT = findIdx(/tipo/i);     if (iT < 0) iT = 1;
+  let iD = findIdx(/duraci/i);   if (iD < 0) iD = 2;
+  let iI = findIdx(/intensi/i);  if (iI < 0) iI = 3;
+  let iN = findIdx(/nota/i);     if (iN < 0) iN = 4;
+  return data.rows.map(r => ({
+    fecha: parseGsheetDate(r[keys[iF]]),
+    tipo: r[keys[iT]] || '',
+    duracion: num(r[keys[iD]]),
+    intensidad: num(r[keys[iI]]),
+    notas: r[keys[iN]] || ''
+  })).filter(r => r.fecha && r.tipo)
     .sort((a, b) => b.fecha - a.fecha);
 }
 
@@ -1645,6 +1682,10 @@ function renderGym() {
 
   container.innerHTML = `
     <div class="header-band">
+      <div class="topbar">
+        <div></div>
+        <button class="refresh-btn" onclick="loadGymData(true)">Recargar</button>
+      </div>
       <div class="header" style="border-bottom:none;padding-bottom:0;margin-bottom:18px;">
         <div>
           <div class="title">Gimnasio</div>
@@ -1703,25 +1744,33 @@ let _COMIDAS_MES_VISIBLE = null; // ej: "Mayo 2026"
 
 function parseComidas(data) {
   // Parser de hojas tipo "Mayo 2026": estructura con dia, momento, comida, categoría
-  if (!data || !data.rows) return [];
-  // Buscar keys ignorando case/acentos
-  const findKey = (rowObj, re) => Object.keys(rowObj).find(k => re.test(k) && !k.startsWith('_f_'));
+  if (!data || !data.rows || !data.cols) return [];
+  const cols = data.cols;
+  const keys = cols.map((_, i) => cols[i] || ('col_' + i));
+  const findIdx = (re) => cols.findIndex(c => re.test(c));
+  // Defaults posicionales: 0=dia, 1=momento, 2=comida, 3=categoria, 4=notas
+  let iD = findIdx(/^d[ií]a$/i); if (iD < 0) iD = findIdx(/d[ií]a/i); if (iD < 0) iD = 0;
+  let iM = findIdx(/momento/i);  if (iM < 0) iM = 1;
+  let iC = findIdx(/comida/i);   if (iC < 0) iC = 2;
+  let iCa = findIdx(/categor/i); if (iCa < 0) iCa = 3;
+  let iN = findIdx(/nota/i);     if (iN < 0) iN = 4;
   let lastDia = null;
   const out = [];
   for (const r of data.rows) {
-    const kDia = findKey(r, /^d[ií]a$/i) || findKey(r, /d[ií]a/i);
-    const kMom = findKey(r, /momento/i);
-    const kCom = findKey(r, /comida/i);
-    const kCat = findKey(r, /categor/i);
-    const kNot = findKey(r, /nota/i);
-    const dia = kDia ? (r[kDia] || '') : '';
-    const momento = kMom ? (r[kMom] || '') : '';
-    const comida = kCom ? (r[kCom] || '') : '';
-    const categoria = kCat ? (r[kCat] || '') : '';
-    const notas = kNot ? (r[kNot] || '') : '';
+    const dia = r[keys[iD]] || '';
+    const momento = r[keys[iM]] || '';
+    const comida = r[keys[iC]] || '';
+    const categoria = r[keys[iCa]] || '';
+    const notas = r[keys[iN]] || '';
     if (dia && String(dia).trim()) lastDia = String(dia).trim();
     if (!momento) continue;
-    out.push({ dia: lastDia, momento: String(momento).trim(), comida: String(comida || '').trim(), categoria: String(categoria || '').trim(), notas: String(notas || '').trim() });
+    out.push({
+      dia: lastDia,
+      momento: String(momento).trim(),
+      comida: String(comida || '').trim(),
+      categoria: String(categoria || '').trim(),
+      notas: String(notas || '').trim()
+    });
   }
   return out;
 }
@@ -1746,11 +1795,12 @@ async function loadComidasData(force) {
   if (_PERSONAL_LOADED.comidas && !force && !_COMIDAS_MES_VISIBLE) return;
   if (!_PERSONAL) renderComidasFromCache();
   const sheetName = _COMIDAS_MES_VISIBLE || pickComidaSheet();
-  const data = await fetchSheetJSONP(sheetName);
+  // El layout: col A vacía, filas 1-2 son títulos, fila 3 son headers reales, datos desde fila 4
+  const data = await fetchSheetJSONP(sheetName, { range: 'B3:F200', headers: 1 });
   let parsed = parseComidas(data);
   // Si el mes actual no existe (data null) o no devolvió nada, probamos Mayo 2026 (donde está la data real)
   if ((!data || parsed.length === 0) && sheetName !== 'Mayo 2026') {
-    const fb = await fetchSheetJSONP('Mayo 2026');
+    const fb = await fetchSheetJSONP('Mayo 2026', { range: 'B3:F200', headers: 1 });
     parsed = parseComidas(fb);
     if (parsed.length) _COMIDAS_MES_VISIBLE = 'Mayo 2026';
   } else {
