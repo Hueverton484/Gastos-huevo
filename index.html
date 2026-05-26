@@ -102,6 +102,21 @@ body {
 }
 @keyframes tabIndicator { from { transform: scaleX(0); } to { transform: scaleX(1); } }
 
+/* ═══════════ Salud: medidas ═══════════ */
+.measures-list { display: flex; flex-direction: column; gap: 12px; }
+.measure-row { display: grid; grid-template-columns: 1fr auto auto; align-items: center; gap: 12px; padding: 6px 0; font-size: 13px; }
+.measure-row .m-label { color: #1F1F1E; }
+.measure-row .m-value { color: #4A4845; font-variant-numeric: tabular-nums; font-weight: 500; }
+.measure-row .m-delta { font-size: 11px; font-weight: 600; padding: 2px 6px; border-radius: 4px; min-width: 52px; text-align: center; }
+.measure-row .m-delta.up   { color: #9B3B1E; background: #FEF3F0; }
+.measure-row .m-delta.down { color: #0F6E56; background: #F0FAF6; }
+.measure-row .m-delta.neutral { color: #ABA9A0; background: transparent; }
+html[data-theme="dark"] .measure-row .m-label { color: #E8E5DE; }
+html[data-theme="dark"] .measure-row .m-value { color: #BFBDB4; }
+html[data-theme="dark"] .measure-row { border-color: rgba(255,255,255,0.06) !important; }
+html[data-theme="dark"] .measure-row .m-delta.up { background: rgba(216,90,48,0.12); color: #FCA5A5; }
+html[data-theme="dark"] .measure-row .m-delta.down { background: rgba(29,158,117,0.12); color: #6EE7B7; }
+
 /* ═══════════ Placeholders de solapas vacías ═══════════ */
 .placeholder-hero {
   text-align: center; padding: 80px 24px 60px;
@@ -684,17 +699,19 @@ html[data-theme="dark"] .sk-loading-text { color: #6B6961; }
 
   <!-- ═══════ Solapa: Salud ═══════ -->
   <div class="tab-content" data-tab="salud" hidden>
-    <div class="placeholder-hero">
-      <div class="placeholder-icon">❤️</div>
-      <div class="placeholder-title">Salud y bienestar</div>
-      <div class="placeholder-subtitle">Llevá control de tu peso, sueño, energía y otros indicadores de bienestar.</div>
-      <div class="placeholder-features">
-        <div class="feature-card"><span class="feature-emoji">⚖️</span><div class="feature-name">Peso corporal</div><div class="feature-desc">Registro semanal con gráfico de tendencia</div></div>
-        <div class="feature-card"><span class="feature-emoji">📏</span><div class="feature-name">Medidas</div><div class="feature-desc">Cintura, pecho, brazos, etc.</div></div>
-        <div class="feature-card"><span class="feature-emoji">😴</span><div class="feature-name">Horas de sueño</div><div class="feature-desc">Calidad y horas dormidas por día</div></div>
-        <div class="feature-card"><span class="feature-emoji">🧘</span><div class="feature-name">Energía y ánimo</div><div class="feature-desc">Cómo te sentís cada día (1-10)</div></div>
+    <div id="salud-content">
+      <div class="sk-band" style="background:linear-gradient(135deg,#1F1F1E 0%,#2D2C28 100%);">
+        <div class="sk-dark" style="width:180px;height:24px;margin-bottom:8px;"></div>
+        <div class="sk-dark" style="width:120px;height:14px;margin-bottom:22px;"></div>
+        <div class="sk-kpis" style="grid-template-columns:repeat(3,1fr);">
+          <div class="sk-kpi"></div><div class="sk-kpi"></div><div class="sk-kpi"></div>
+        </div>
       </div>
-      <button class="placeholder-cta" onclick="alert('Decime qué de salud te importa trackear y lo configuramos.')">Activar esta sección</button>
+      <div class="sk-grid-21">
+        <div class="sk-card" style="height:300px;"></div>
+        <div class="sk-card" style="height:300px;"></div>
+      </div>
+      <div class="sk-loading-text">Cargando datos de salud…</div>
     </div>
   </div>
 </div>
@@ -963,6 +980,290 @@ function onError(err) {
   // Si ya estamos mostrando datos (de caché), no rompemos la vista: solo limpiamos el spinner
   if (_DATA) { clearRefreshing(); return; }
   document.getElementById('app').innerHTML = '<div class="error">Error: ' + esc(err && err.message ? err.message : err) + '</div>';
+}
+
+/* ════════════════════════════════════════════════════════
+   Spreadsheet personal: Salud, Gym y Comidas
+   ════════════════════════════════════════════════════════ */
+const PERSONAL_SHEET_ID = '1RY0b_aSuHfMj582OPYm0NHMyBX1PO8ViruLb3Kb3tEE';
+const PERSONAL_CACHE_KEY = 'misgastos_personal_v1';
+let _PERSONAL = null;
+let _PERSONAL_LOADED = { salud: false, gym: false, comidas: false };
+
+function fetchSheetJSONP(sheetName) {
+  return new Promise((resolve) => {
+    const cbName = '__shCb_' + Math.random().toString(36).slice(2, 9);
+    const script = document.createElement('script');
+    function cleanup() {
+      try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    const timeoutId = setTimeout(() => { cleanup(); resolve(null); }, 15000);
+    window[cbName] = function(d) { clearTimeout(timeoutId); cleanup(); resolve(parseGvizResponse(d)); };
+    const url = 'https://docs.google.com/spreadsheets/d/' + PERSONAL_SHEET_ID +
+                '/gviz/tq?tqx=responseHandler:' + cbName + ';out:json' +
+                '&sheet=' + encodeURIComponent(sheetName) +
+                '&t=' + Date.now();
+    script.src = url;
+    script.onerror = function() { clearTimeout(timeoutId); cleanup(); resolve(null); };
+    document.head.appendChild(script);
+  });
+}
+
+function parseGvizResponse(gvizData) {
+  if (!gvizData || !gvizData.table) return null;
+  const cols = (gvizData.table.cols || []).map(c => (c.label || c.id || '').trim());
+  const rows = (gvizData.table.rows || []).map(r => {
+    const obj = {};
+    (r.c || []).forEach((cell, i) => {
+      const key = cols[i] || ('col_' + i);
+      if (!cell) { obj[key] = null; return; }
+      obj[key] = cell.v;
+      if (cell.f !== undefined) obj['_f_' + key] = cell.f;
+    });
+    return obj;
+  });
+  return { cols, rows };
+}
+
+function parseGsheetDate(v) {
+  if (v == null) return null;
+  if (typeof v === 'number') return v;
+  if (v instanceof Date) return v.getTime();
+  if (typeof v === 'string' && v.startsWith('Date(')) {
+    const m = v.match(/Date\((\d+),(\d+),(\d+)/);
+    if (m) return new Date(+m[1], +m[2], +m[3]).getTime();
+  }
+  return null;
+}
+
+function num(v) {
+  if (v == null || v === '') return NaN;
+  if (typeof v === 'number') return v;
+  return parseFloat(String(v).replace(',', '.'));
+}
+
+function parsePeso(data) {
+  if (!data) return [];
+  return data.rows.map(r => {
+    // Buscar columnas por substring (los nombres pueden variar)
+    const fecha = r[Object.keys(r).find(k => /fecha/i.test(k)) || ''];
+    const peso = num(r[Object.keys(r).find(k => /peso/i.test(k) && !k.startsWith('_f_')) || '']);
+    const variacion = num(r[Object.keys(r).find(k => /variaci/i.test(k) && !k.startsWith('_f_')) || '']);
+    const nota = r[Object.keys(r).find(k => /nota/i.test(k) && !k.startsWith('_f_')) || ''] || '';
+    return { fecha: parseGsheetDate(fecha), peso, variacion: isNaN(variacion) ? null : variacion, nota };
+  }).filter(r => r.fecha && !isNaN(r.peso))
+    .sort((a, b) => a.fecha - b.fecha);
+}
+
+function parseMedidas(data) {
+  if (!data) return [];
+  return data.rows.map(r => {
+    const get = re => r[Object.keys(r).find(k => re.test(k) && !k.startsWith('_f_')) || ''];
+    return {
+      fecha: parseGsheetDate(get(/fecha/i)),
+      cintura: num(get(/cintura(?!.*\/)/i)),
+      cadera: num(get(/cadera/i)),
+      ratio: num(get(/ratio|cintura\/cadera|indice/i)),
+      pecho: num(get(/pecho/i)),
+      brazo: num(get(/brazo/i)),
+      muslo: num(get(/muslo/i)),
+      notas: get(/nota/i) || ''
+    };
+  }).filter(r => r.fecha && !isNaN(r.cintura))
+    .sort((a, b) => a.fecha - b.fecha);
+}
+
+async function loadSaludData(force) {
+  if (_PERSONAL_LOADED.salud && !force) return;
+  // Render desde caché si existe
+  if (!_PERSONAL) renderSaludFromCache();
+  const [peso, medidas] = await Promise.all([
+    fetchSheetJSONP('Peso'),
+    fetchSheetJSONP('Medidas')
+  ]);
+  if (!_PERSONAL) _PERSONAL = {};
+  _PERSONAL.peso = parsePeso(peso);
+  _PERSONAL.medidas = parseMedidas(medidas);
+  _PERSONAL_LOADED.salud = true;
+  try { localStorage.setItem(PERSONAL_CACHE_KEY, JSON.stringify(_PERSONAL)); } catch(e){}
+  renderSalud();
+}
+
+function renderSaludFromCache() {
+  try {
+    const raw = localStorage.getItem(PERSONAL_CACHE_KEY);
+    if (!raw) return;
+    _PERSONAL = JSON.parse(raw);
+    renderSalud();
+  } catch(e){}
+}
+
+function fmtDayMonth(ts) {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' });
+}
+function fmtMonthYear(ts) {
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('es-AR', { month: 'short', year: 'numeric' });
+}
+
+function renderSalud() {
+  const container = document.getElementById('salud-content');
+  if (!container) return;
+  const peso = (_PERSONAL && _PERSONAL.peso) || [];
+  const medidas = (_PERSONAL && _PERSONAL.medidas) || [];
+  const latest = peso[peso.length - 1] || null;
+  const first = peso[0] || null;
+  const prev = peso.length > 1 ? peso[peso.length - 2] : null;
+  const varSemanal = (latest && prev) ? latest.peso - prev.peso : null;
+  const varTotal = (latest && first && latest !== first) ? latest.peso - first.peso : null;
+  const minPeso = peso.length ? Math.min(...peso.map(p => p.peso)) : null;
+  const maxPeso = peso.length ? Math.max(...peso.map(p => p.peso)) : null;
+
+  const latestM = medidas[medidas.length - 1] || null;
+  const prevM = medidas.length > 1 ? medidas[medidas.length - 2] : null;
+
+  const fmtKg = v => (v == null || isNaN(v)) ? '—' : v.toFixed(1).replace('.', ',') + ' kg';
+  const fmtCm = v => (v == null || isNaN(v)) ? '—' : v.toFixed(1).replace('.', ',') + ' cm';
+  const fmtVar = (v, unit) => {
+    if (v == null || isNaN(v)) return '<span style="color:#ABA9A0;">sin cambios</span>';
+    const cls = v > 0 ? 'neg' : (v < 0 ? 'pos' : 'neutral');
+    const sign = v > 0 ? '+' : '';
+    return '<span class="kpi-delta ' + cls + '">' + sign + v.toFixed(1).replace('.', ',') + ' ' + unit + '</span>';
+  };
+
+  const measureRow = (label, key, unit) => {
+    const curV = latestM ? latestM[key] : null;
+    const prvV = prevM ? prevM[key] : null;
+    const delta = (curV != null && prvV != null && !isNaN(curV) && !isNaN(prvV)) ? curV - prvV : null;
+    const fmt = unit === 'cm' ? fmtCm : fmtKg;
+    return '<div class="measure-row"><span class="m-label">' + label + '</span><span class="m-value">' + fmt(curV) + '</span>' + (delta != null ? '<span class="m-delta ' + (delta > 0 ? 'up' : 'down') + '">' + (delta > 0 ? '↑' : '↓') + Math.abs(delta).toFixed(1).replace('.', ',') + '</span>' : '<span class="m-delta neutral">—</span>') + '</div>';
+  };
+
+  container.innerHTML = `
+    <div class="header-band">
+      <div class="header" style="border-bottom:none;padding-bottom:0;margin-bottom:18px;">
+        <div>
+          <div class="title">Salud</div>
+          <div class="subtitle">Peso semanal y medidas mensuales</div>
+        </div>
+        <div class="day-info">${peso.length} registros · ${medidas.length} medidas</div>
+      </div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="kpi">
+          <div class="kpi-label">Peso actual</div>
+          <div class="kpi-value">${fmtKg(latest && latest.peso)}</div>
+          <div class="kpi-hint">${latest ? fmtDayMonth(latest.fecha) : '—'}</div>
+          ${fmtVar(varSemanal, 'kg')}
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Cambio total</div>
+          <div class="kpi-value">${varTotal != null ? (varTotal > 0 ? '+' : '') + varTotal.toFixed(1).replace('.', ',') + ' kg' : '—'}</div>
+          <div class="kpi-hint">desde ${first ? fmtDayMonth(first.fecha) : '—'}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Rango</div>
+          <div class="kpi-value" style="font-size:18px;">${minPeso != null ? minPeso.toFixed(1).replace('.', ',') : '—'}–${maxPeso != null ? maxPeso.toFixed(1).replace('.', ',') : '—'}</div>
+          <div class="kpi-hint">min – max (kg)</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row row-2-1" style="margin-top:16px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Evolución del peso</div>
+          <div class="card-meta">${peso.length} ${peso.length === 1 ? 'registro' : 'registros'}</div>
+        </div>
+        ${peso.length > 0
+          ? '<div class="chart-wrap-lg"><canvas id="chart-peso"></canvas></div>'
+          : '<div class="goal-meta" style="padding:40px 0;text-align:center;">Sin registros de peso todavía.</div>'}
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Medidas actuales</div>
+          <div class="card-meta">${latestM ? fmtDayMonth(latestM.fecha) : '—'}</div>
+        </div>
+        ${latestM ? `<div class="measures-list">
+          ${measureRow('Cintura', 'cintura', 'cm')}
+          ${measureRow('Cadera', 'cadera', 'cm')}
+          ${measureRow('Pecho', 'pecho', 'cm')}
+          ${measureRow('Brazo', 'brazo', 'cm')}
+          ${measureRow('Muslo', 'muslo', 'cm')}
+          ${latestM.ratio ? `<div class="measure-row" style="border-top:1px solid #F2F1ED;padding-top:10px;margin-top:6px;"><span class="m-label">Ratio cintura/cadera</span><span class="m-value">${(latestM.ratio * 100).toFixed(1)}%</span><span class="m-delta neutral">—</span></div>` : ''}
+        </div>` : '<div class="goal-meta" style="padding:40px 0;text-align:center;">Sin medidas registradas todavía.</div>'}
+      </div>
+    </div>
+
+    ${medidas.length > 1 ? `<div class="row" style="margin-top:16px;">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Historial de medidas</div>
+          <div class="card-meta">${medidas.length} mediciones</div>
+        </div>
+        <div class="annual-table">
+          <div class="annual-header" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;">
+            <span>Fecha</span><span>Cintura</span><span>Cadera</span><span>Pecho</span><span>Brazo</span><span>Muslo</span>
+          </div>
+          ${[...medidas].reverse().map(m => `<div class="annual-row" style="grid-template-columns:1fr 1fr 1fr 1fr 1fr 1fr;">
+            <span class="annual-month">${fmtMonthYear(m.fecha)}</span>
+            <span class="annual-val">${fmtCm(m.cintura)}</span>
+            <span class="annual-val">${fmtCm(m.cadera)}</span>
+            <span class="annual-val">${fmtCm(m.pecho)}</span>
+            <span class="annual-val">${fmtCm(m.brazo)}</span>
+            <span class="annual-val">${fmtCm(m.muslo)}</span>
+          </div>`).join('')}
+        </div>
+      </div>
+    </div>` : ''}
+
+    <div class="footer-meta">Datos leídos del spreadsheet de salud</div>
+  `;
+
+  if (peso.length > 0) renderPesoChart(peso);
+}
+
+function renderPesoChart(peso, _try) {
+  if (typeof Chart === 'undefined') {
+    if ((_try || 0) > 80) return;
+    setTimeout(() => renderPesoChart(peso, (_try || 0) + 1), 60);
+    return;
+  }
+  const canvas = document.getElementById('chart-peso');
+  if (!canvas) return;
+  if (_CHARTS.peso) _CHARTS.peso.destroy();
+  const isDark = _THEME === 'dark';
+  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : '#F2F1ED';
+  const tickColor = isDark ? '#8E8C84' : '#79786F';
+  const labels = peso.map(p => fmtDayMonth(p.fecha));
+  const values = peso.map(p => p.peso);
+  _CHARTS.peso = new Chart(canvas, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: 'Peso (kg)', data: values,
+        borderColor: '#5346B0', backgroundColor: 'rgba(83,70,176,0.10)',
+        fill: true, tension: 0.35, pointRadius: 5, pointHoverRadius: 7,
+        pointBackgroundColor: '#5346B0', borderWidth: 2.5
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      animation: { duration: 900, easing: 'easeOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => ' ' + ctx.raw.toFixed(1).replace('.', ',') + ' kg' } }
+      },
+      scales: {
+        x: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11, family: "'Inter', system-ui, sans-serif" } } },
+        y: { grid: { color: gridColor }, ticks: { color: tickColor, font: { size: 11, family: "'Inter', system-ui, sans-serif" }, callback: v => v.toFixed(1).replace('.', ',') } }
+      }
+    }
+  });
 }
 function onData(data) {
   _REFRESHING = false;
@@ -1375,6 +1676,8 @@ function switchTab(tab) {
   // FAB: por ahora solo en gastos
   const fab = document.getElementById('fab-add');
   if (fab) fab.style.display = (tab === 'gastos') ? 'flex' : 'none';
+  // Cargar datos de la solapa correspondiente (lazy load)
+  if (tab === 'salud' && typeof loadSaludData === 'function') loadSaludData();
   // Scroll arriba al cambiar de solapa
   window.scrollTo({ top: 0, behavior: 'instant' });
 }
