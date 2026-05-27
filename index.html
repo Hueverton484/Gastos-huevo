@@ -1359,7 +1359,9 @@ async function loadSaludData(force) {
   // Render desde caché si existe
   if (!_PERSONAL) renderSaludFromCache();
   const [peso, medidas] = await Promise.all([
-    fetchSheetJSONP('Peso'),
+    // Peso: la col A está vacía, los datos están en B-E. headers=0 evita que gviz
+    // confunda filas de título/sub-encabezado como labels.
+    fetchSheetJSONP('Peso', { range: 'B:E', headers: 0 }),
     fetchSheetJSONP('Medidas')
   ]);
   if (!_PERSONAL) _PERSONAL = {};
@@ -1795,12 +1797,14 @@ async function loadComidasData(force) {
   if (_PERSONAL_LOADED.comidas && !force && !_COMIDAS_MES_VISIBLE) return;
   if (!_PERSONAL) renderComidasFromCache();
   const sheetName = _COMIDAS_MES_VISIBLE || pickComidaSheet();
-  // El layout: col A vacía, filas 1-2 son títulos, fila 3 son headers reales, datos desde fila 4
-  const data = await fetchSheetJSONP(sheetName, { range: 'B3:F200', headers: 1 });
+  // Layout real: col A vacía, fila 1-2 son títulos, fila 3 es subtítulo ("31 dias - 93 comidas posibles"),
+  // fila 4 son los headers (Dia/Momento/Comida/Categoria/Notas), datos desde fila 5.
+  // Apuntamos a B4:F para que gviz tome la fila correcta como labels.
+  const data = await fetchSheetJSONP(sheetName, { range: 'B4:F200', headers: 1 });
   let parsed = parseComidas(data);
   // Si el mes actual no existe (data null) o no devolvió nada, probamos Mayo 2026 (donde está la data real)
   if ((!data || parsed.length === 0) && sheetName !== 'Mayo 2026') {
-    const fb = await fetchSheetJSONP('Mayo 2026', { range: 'B3:F200', headers: 1 });
+    const fb = await fetchSheetJSONP('Mayo 2026', { range: 'B4:F200', headers: 1 });
     parsed = parseComidas(fb);
     if (parsed.length) _COMIDAS_MES_VISIBLE = 'Mayo 2026';
   } else {
