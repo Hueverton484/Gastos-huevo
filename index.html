@@ -723,6 +723,112 @@ html[data-theme="dark"] .sk-card { background: rgba(24,24,28,0.78); border-color
 html[data-theme="dark"] .sk-card::after { background: linear-gradient(90deg, transparent 25%, rgba(255,255,255,0.04) 50%, transparent 75%); }
 html[data-theme="dark"] .sk-chip { background: linear-gradient(90deg, rgba(255,255,255,0.05) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.05) 75%); }
 html[data-theme="dark"] .sk-loading-text { color: #6B6961; }
+
+/* ═══════════════════════════════════════════════════════
+   UI/UX POLISH v2 — hover, scroll-reveal, stagger, shimmer
+   ═══════════════════════════════════════════════════════ */
+
+/* ── 1. KPI cards: hover lift (header-band override viene después) ── */
+.kpi { transition: transform 0.22s cubic-bezier(0.4,0,0.2,1), box-shadow 0.22s cubic-bezier(0.4,0,0.2,1), border-color 0.22s ease, background 0.2s ease; }
+.kpi:hover { transform: translateY(-3px); box-shadow: 0 10px 28px rgba(0,0,0,0.10); border-color: #D8D7D0; }
+.header-band .kpi:hover { transform: translateY(-2px); box-shadow: none; border-color: rgba(255,255,255,0.1); background: rgba(255,255,255,0.13); }
+html[data-theme="dark"] .kpi:hover { border-color: rgba(255,255,255,0.14); box-shadow: 0 10px 28px rgba(0,0,0,0.50); }
+html[data-theme="dark"] .header-band .kpi:hover { background: rgba(255,255,255,0.13); box-shadow: none; }
+
+/* ── 2. Tab bar: press feedback nativo ── */
+.tab-btn { transition: color 0.2s ease, transform 0.18s cubic-bezier(0.34,1.56,0.64,1); }
+.tab-btn:active { transform: scale(0.90); }
+.tab-btn:active .tab-icon { transform: scale(1.05); }
+
+/* ── 3. Scroll-reveal: aparición al entrar al viewport ── */
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity 0.6s cubic-bezier(0.22,1,0.36,1), transform 0.6s cubic-bezier(0.22,1,0.36,1); will-change: opacity, transform; }
+.reveal.in { opacity: 1; transform: translateY(0); }
+
+/* ── 4. Stagger en listas: nth-child con delays escalonados ── */
+.top-list > *,
+.comida-day,
+.gym-session-row,
+.rutina-row,
+.tx-row {
+  animation: fadeInUp 0.45s cubic-bezier(0.22,1,0.36,1) both;
+}
+.top-list > *:nth-child(1)  { animation-delay: 0ms;   }
+.top-list > *:nth-child(2)  { animation-delay: 40ms;  }
+.top-list > *:nth-child(3)  { animation-delay: 80ms;  }
+.top-list > *:nth-child(4)  { animation-delay: 120ms; }
+.top-list > *:nth-child(5)  { animation-delay: 160ms; }
+.top-list > *:nth-child(6)  { animation-delay: 200ms; }
+.top-list > *:nth-child(7)  { animation-delay: 240ms; }
+.top-list > *:nth-child(8)  { animation-delay: 280ms; }
+.top-list > *:nth-child(9)  { animation-delay: 320ms; }
+.top-list > *:nth-child(10) { animation-delay: 360ms; }
+.top-list > *:nth-child(n+11) { animation-delay: 400ms; }
+
+.comida-day:nth-child(1)  { animation-delay: 0ms; }
+.comida-day:nth-child(2)  { animation-delay: 45ms; }
+.comida-day:nth-child(3)  { animation-delay: 90ms; }
+.comida-day:nth-child(4)  { animation-delay: 135ms; }
+.comida-day:nth-child(5)  { animation-delay: 180ms; }
+.comida-day:nth-child(6)  { animation-delay: 225ms; }
+.comida-day:nth-child(n+7) { animation-delay: 270ms; }
+
+/* ── 5. Modal slide-up sheet en mobile ── */
+@keyframes modalSheetUp { from { opacity: 0; transform: translateY(100%); } to { opacity: 1; transform: translateY(0); } }
+@media (max-width: 720px) {
+  .modal-overlay { align-items: flex-end; padding: 0; }
+  .modal { max-width: 100%; border-radius: 18px 18px 0 0; padding-bottom: max(22px, calc(env(safe-area-inset-bottom, 0px) + 18px)); animation: modalSheetUp 0.36s cubic-bezier(0.22,1,0.36,1); }
+  .modal::before { content: ''; display: block; width: 38px; height: 4px; background: #D8D7D0; border-radius: 999px; margin: 0 auto 14px; }
+  html[data-theme="dark"] .modal::before { background: rgba(255,255,255,0.18); }
+}
+
+/* ── 6. Row hover en listas de gym, rutina y comidas ── */
+.gym-session-row, .rutina-row {
+  margin: 0 -10px; padding-left: 10px; padding-right: 10px;
+  border-radius: 8px;
+  transition: background 0.18s ease, transform 0.18s ease;
+}
+.gym-session-row:hover, .rutina-row:hover { background: #FAF9F5; transform: translateX(2px); }
+html[data-theme="dark"] .gym-session-row:hover,
+html[data-theme="dark"] .rutina-row:hover { background: rgba(255,255,255,0.035); }
+
+.cat-detail-row { transition: background 0.16s ease; margin: 0 -6px; padding-left: 6px; padding-right: 6px; border-radius: 6px; }
+.cat-detail-row:hover { background: rgba(0,0,0,0.025); }
+html[data-theme="dark"] .cat-detail-row:hover { background: rgba(255,255,255,0.04); }
+
+/* ── 7. Header-band: shimmer sutil que se mueve ── */
+@keyframes shimmerSweep { 0% { background-position: -150% 0; } 100% { background-position: 250% 0; } }
+.header-band::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.06) 50%, transparent 62%);
+  background-size: 200% 100%;
+  animation: shimmerSweep 7s linear infinite;
+  pointer-events: none;
+  border-radius: inherit;
+}
+html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg, transparent 38%, rgba(255,255,255,0.08) 50%, transparent 62%); background-size: 200% 100%; }
+
+/* ── 8. KPI values: contador con números tabular fijos durante anim ── */
+.kpi-value[data-anim] { font-variant-numeric: tabular-nums; }
+
+/* ── 9. Comida day: hover overall ── */
+.comida-day { transition: transform 0.18s ease; }
+.comida-day:hover .comida-day-header { transform: translateX(2px); transition: transform 0.18s ease; }
+
+/* ── 10. Card meta refresh subtle pulse on data update ── */
+@keyframes metaFlash { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
+.card-meta.flash { animation: metaFlash 0.6s ease; }
+
+/* ── 11. Setup banner button: nice hover ── */
+.setup-banner button { transition: background 0.2s ease, transform 0.2s ease; }
+.setup-banner button:hover { transform: translateY(-1px); }
+.setup-banner button:active { transform: translateY(0); }
+
+/* ── 12. Soporte reduced-motion (extend existing rule) ── */
+@media (prefers-reduced-motion: reduce) {
+  .header-band::after { animation: none !important; }
+  .reveal { opacity: 1 !important; transform: none !important; }
+  .top-list > *, .comida-day, .gym-session-row, .rutina-row, .tx-row { animation: none !important; }
+}
 </style>
 </head>
 <body>
@@ -2675,6 +2781,117 @@ function switchTab(tab) {
 }
 // Aplicar solapa inicial al cargar
 document.addEventListener('DOMContentLoaded', () => { switchTab(_CURRENT_TAB); });
+
+/* ════════════════════════════════════════════════════════
+   UI/UX v2: Scroll-reveal, count-up universal y auto-wire
+   ════════════════════════════════════════════════════════ */
+
+// ── Animación de números en KPIs (auto, sin tocar renders) ──
+function animateNumericKPIs(scope) {
+  scope = scope || document;
+  const els = scope.querySelectorAll('.kpi-value:not([data-animated])');
+  els.forEach(el => {
+    const text = el.textContent;
+    // Saltar si es '—' o no tiene número
+    if (!text || text.trim() === '—') return;
+    const m = text.match(/([+-]?\d+(?:[.,]\d+)?)/);
+    if (!m) return;
+    const raw = m[1];
+    const target = parseFloat(raw.replace(',', '.'));
+    if (isNaN(target) || target === 0) { el.dataset.animated = '1'; return; }
+    // Detectar formato
+    const decMatch = raw.match(/[.,](\d+)/);
+    const decimals = decMatch ? decMatch[1].length : 0;
+    const useComma = raw.includes(',');
+    const isNegative = target < 0;
+    const showSign = raw.startsWith('+') && target > 0;
+    const fmt = (v) => {
+      const abs = Math.abs(v).toFixed(decimals);
+      const out = useComma ? abs.replace('.', ',') : abs;
+      return (v < 0 ? '-' : (showSign ? '+' : '')) + out;
+    };
+    el.dataset.animated = '1';
+    const startT = performance.now();
+    const duration = 750;
+    function step(now) {
+      const p = Math.min(1, (now - startT) / duration);
+      const eased = 1 - Math.pow(1 - p, 3);
+      const current = target * eased;
+      el.textContent = text.replace(raw, fmt(current));
+      if (p < 1) requestAnimationFrame(step);
+      else el.textContent = text; // restaurar texto exacto
+    }
+    requestAnimationFrame(step);
+  });
+}
+
+// ── Scroll-reveal vía IntersectionObserver ──
+let _revealObs = null;
+function getRevealObserver() {
+  if (_revealObs) return _revealObs;
+  if (typeof IntersectionObserver === 'undefined') return null;
+  _revealObs = new IntersectionObserver((entries) => {
+    entries.forEach(entry => {
+      if (entry.isIntersecting) {
+        entry.target.classList.add('in');
+        _revealObs.unobserve(entry.target);
+      }
+    });
+  }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
+  return _revealObs;
+}
+
+function wireScrollReveal(scope) {
+  scope = scope || document;
+  const obs = getRevealObserver();
+  if (!obs) return;
+  const candidates = scope.querySelectorAll('.card:not(.reveal-set)');
+  candidates.forEach(el => {
+    el.classList.add('reveal-set');
+    const rect = el.getBoundingClientRect();
+    const inViewport = rect.top < window.innerHeight * 0.92 && rect.bottom > 0;
+    if (inViewport) return; // los visibles ya animan por la cascada existente
+    el.classList.add('reveal');
+    obs.observe(el);
+  });
+}
+
+// ── MutationObserver: auto-detecta nuevos .card / .kpi-value ──
+let _wireTimer = null;
+function scheduleWire() {
+  clearTimeout(_wireTimer);
+  _wireTimer = setTimeout(() => {
+    wireScrollReveal();
+    animateNumericKPIs();
+  }, 40);
+}
+
+if (typeof MutationObserver !== 'undefined') {
+  const domWatcher = new MutationObserver((mutations) => {
+    for (const m of mutations) {
+      for (const node of m.addedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.classList?.contains('card') ||
+            node.classList?.contains('kpi-value') ||
+            node.querySelector?.('.card, .kpi-value')) {
+          scheduleWire();
+          return;
+        }
+      }
+    }
+  });
+  document.addEventListener('DOMContentLoaded', () => {
+    domWatcher.observe(document.body, { childList: true, subtree: true });
+    scheduleWire(); // wiring inicial
+  });
+}
+
+// ── Re-wire al cambiar de tab (por si los datos ya estaban en caché) ──
+const _origSwitchTab = switchTab;
+window.switchTab = function(tab) {
+  _origSwitchTab(tab);
+  setTimeout(scheduleWire, 60);
+};
 
 /* ── Theme toggle (dark/light) ── */
 let _THEME = (typeof localStorage !== 'undefined' && localStorage.getItem('misgastos_theme')) || 'light';
