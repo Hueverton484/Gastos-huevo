@@ -1577,10 +1577,20 @@ function parseRutina(data) {
     return 'Actual';
   };
 
+  // Devuelve el valor formateado (_f_<key>) si existe, si no el valor crudo.
+  // Necesario para "Series x Reps": Google Sheets parsea "6-8" como fecha,
+  // así que el valor crudo es "Date(...)" pero el formateado es "6-8".
+  const getVal = (r, re) => {
+    const k = Object.keys(r).find(k => re.test(k) && !k.startsWith('_f_'));
+    if (!k) return '';
+    const f = r['_f_' + k];
+    if (f !== undefined && f !== null && f !== '') return f;
+    return r[k] != null ? r[k] : '';
+  };
+
   return data.rows.map(r => {
-    const get = re => r[Object.keys(r).find(k => re.test(k) && !k.startsWith('_f_')) || ''];
-    const ejercicio = get(/ejercicio/i) || '';
-    const reps = get(/series|reps/i) || '';
+    const ejercicio = getVal(r, /ejercicio/i);
+    const reps = getVal(r, /series|reps/i);
     const pesos = monthKeys.map(k => num(r[k])).map(v => isNaN(v) ? null : v);
     // último valor con peso = peso actual; el penúltimo = peso previo
     let curIdx = -1, prevIdx = -1;
@@ -1598,7 +1608,7 @@ function parseRutina(data) {
       pesoActual: curIdx >= 0 ? pesos[curIdx] : null,
       pesoPrev: prevIdx >= 0 ? pesos[prevIdx] : null,
       monthActual: curIdx >= 0 ? monthLabel(monthKeys[curIdx]) : null,
-      notas: get(/nota/i) || ''
+      notas: getVal(r, /nota/i)
     };
   }).filter(r => r.ejercicio);
 }
@@ -1609,9 +1619,9 @@ async function loadGymData(force) {
   const [actividad, rutina] = await Promise.all([
     // Actividad: col A vacía, datos en B-F. Mismo patrón que Peso.
     fetchSheetJSONP('Actividad', { range: 'B:F', headers: 0 }),
-    // Rutina: la tabla de progreso de pesos empieza en fila 16 (headers) con datos
-    // desde fila 17. Antes hay una sección de rutina semanal que confunde el parser.
-    fetchSheetJSONP('Rutina', { range: 'B16:N100', headers: 1 })
+    // Rutina: la tabla de progreso de pesos tiene headers reales en la fila 18
+    // (las filas 16-17 son título + instrucciones). Datos desde fila 19.
+    fetchSheetJSONP('Rutina', { range: 'B18:N100', headers: 1 })
   ]);
   if (!_PERSONAL) _PERSONAL = {};
   _PERSONAL.actividad = parseActividad(actividad);
