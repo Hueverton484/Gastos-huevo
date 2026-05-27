@@ -1547,16 +1547,42 @@ function parseActividad(data) {
 function parseRutina(data) {
   if (!data) return [];
   if (!data.rows || !data.rows.length) return [];
-  // detectar las columnas de meses
   const allKeys = Object.keys(data.rows[0] || {}).filter(k => !k.startsWith('_f_'));
-  const monthKeys = allKeys.filter(k => /^(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i.test(k.trim()));
+
+  // Identificar columnas estructurales para poder excluirlas del rango "de meses"
+  const idxOf = (re) => allKeys.findIndex(k => re.test(k.trim()));
+  const ejercicioIdx = idxOf(/ejercicio/i);
+  const repsIdx      = idxOf(/series|reps/i);
+  const deltaIdx     = idxOf(/^delta/i);
+  const pctIdx       = allKeys.findIndex(k => k.trim() === '%');
+  const notasIdx     = idxOf(/^nota/i);
+
+  // Las columnas de meses son las que están entre repsIdx (excl.) y la primera
+  // columna "post-meses" (delta/%/notas). Esto deja entrar también una columna
+  // sin label (ej. el peso del mes actual sin header) y los meses con nombre.
+  const startMonths = repsIdx >= 0 ? repsIdx + 1 : 0;
+  const candidatesEnd = [deltaIdx, pctIdx, notasIdx].filter(i => i > startMonths);
+  const endMonths = candidatesEnd.length ? Math.min(...candidatesEnd) : allKeys.length;
+
+  let monthKeys = allKeys.slice(startMonths, endMonths);
+  // Si el rango quedó vacío (estructura inesperada), caer al filtro por nombre de mes
+  if (monthKeys.length === 0) {
+    monthKeys = allKeys.filter(k => /^(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i.test(k.trim()));
+  }
+
+  // Label legible para una columna mensual: si tiene nombre de mes lo usa, si no muestra "Actual"
+  const monthLabel = (k) => {
+    const t = String(k || '').trim();
+    if (/^(ene|feb|mar|abr|may|jun|jul|ago|sep|oct|nov|dic)/i.test(t)) return t;
+    return 'Actual';
+  };
+
   return data.rows.map(r => {
     const get = re => r[Object.keys(r).find(k => re.test(k) && !k.startsWith('_f_')) || ''];
     const ejercicio = get(/ejercicio/i) || '';
     const reps = get(/series|reps/i) || '';
-    // pesos por mes en orden de aparición
     const pesos = monthKeys.map(k => num(r[k])).map(v => isNaN(v) ? null : v);
-    // último valor con peso = peso actual
+    // último valor con peso = peso actual; el penúltimo = peso previo
     let curIdx = -1, prevIdx = -1;
     for (let i = pesos.length - 1; i >= 0; i--) {
       if (pesos[i] != null) {
@@ -1571,7 +1597,7 @@ function parseRutina(data) {
       monthKeys,
       pesoActual: curIdx >= 0 ? pesos[curIdx] : null,
       pesoPrev: prevIdx >= 0 ? pesos[prevIdx] : null,
-      monthActual: curIdx >= 0 ? monthKeys[curIdx] : null,
+      monthActual: curIdx >= 0 ? monthLabel(monthKeys[curIdx]) : null,
       notas: get(/nota/i) || ''
     };
   }).filter(r => r.ejercicio);
@@ -1581,8 +1607,11 @@ async function loadGymData(force) {
   if (_PERSONAL_LOADED.gym && !force) return;
   if (!_PERSONAL) renderGymFromCache();
   const [actividad, rutina] = await Promise.all([
-    fetchSheetJSONP('Actividad'),
-    fetchSheetJSONP('Rutina')
+    // Actividad: col A vacía, datos en B-F. Mismo patrón que Peso.
+    fetchSheetJSONP('Actividad', { range: 'B:F', headers: 0 }),
+    // Rutina: la tabla de progreso de pesos empieza en fila 16 (headers) con datos
+    // desde fila 17. Antes hay una sección de rutina semanal que confunde el parser.
+    fetchSheetJSONP('Rutina', { range: 'B16:N100', headers: 1 })
   ]);
   if (!_PERSONAL) _PERSONAL = {};
   _PERSONAL.actividad = parseActividad(actividad);
