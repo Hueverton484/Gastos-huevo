@@ -27,6 +27,10 @@
 <!-- Chart.js (diferido: no bloquea el primer pintado) -->
 <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 
+<!-- Motion (animaciones premium con springs, hover 3D, scroll-linked). Preload + ESM -->
+<link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/motion@11.11.17/+esm">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+
 <!-- Aplicar tema antes del primer pintado (evita flash) -->
 <script>(function(){try{var t=localStorage.getItem('misgastos_theme')||'light';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();</script>
 
@@ -3341,6 +3345,277 @@ function renderCuotas(cuotas, año, mesNum) {
 }
 
 load();
+</script>
+
+<!-- ════════════════════════════════════════════════════════
+     MOTION v11: animaciones premium (springs, 3D tilt, magnético)
+     ════════════════════════════════════════════════════════ -->
+<script type="module">
+  import { animate, inView, stagger, scroll } from "https://cdn.jsdelivr.net/npm/motion@11.11.17/+esm";
+
+  // Exponer globalmente por si otro código lo necesita
+  window.__motion = { animate, inView, stagger, scroll };
+
+  // Helper para detectar mobile (sin hover-3D en mobile)
+  const isMobile = window.matchMedia('(hover: none), (max-width: 720px)').matches;
+  const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Inyectar CSS que cede el hover-transform al tilt JS y sombras más fuertes en hover
+  const motionCSS = document.createElement('style');
+  motionCSS.textContent = `
+    .card[data-tilt]:hover { transform: none; /* lo maneja JS */ }
+    .card[data-tilt] { transition: box-shadow 0.3s cubic-bezier(0.22,1,0.36,1); }
+    .card[data-tilt]:hover { box-shadow: 0 22px 50px rgba(0,0,0,0.16), 0 4px 14px rgba(0,0,0,0.08); }
+    html[data-theme="dark"] .card[data-tilt]:hover { box-shadow: 0 22px 50px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.3); }
+    /* Glow sutil en el hover */
+    .card[data-tilt] { position: relative; }
+    .card[data-tilt]::before {
+      content: ''; position: absolute; inset: 0;
+      border-radius: inherit; pointer-events: none;
+      background: radial-gradient(220px 220px at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.08), transparent 70%);
+      opacity: 0; transition: opacity 0.3s ease;
+    }
+    .card[data-tilt]:hover::before { opacity: 1; }
+    html[data-theme="dark"] .card[data-tilt]::before {
+      background: radial-gradient(220px 220px at var(--mx, 50%) var(--my, 50%), rgba(255,255,255,0.05), transparent 70%);
+    }
+  `;
+  document.head.appendChild(motionCSS);
+
+  /* ── 1. CARDS: spring entrance al entrar al viewport ─────────────
+     Solo animamos cards BAJO el fold para no pelear con el fadeInUp inicial. */
+  function wireMotionCards(scope) {
+    scope = scope || document;
+    const cards = scope.querySelectorAll('.card:not([data-motion])');
+    if (!cards.length) return;
+
+    cards.forEach(c => {
+      c.setAttribute('data-motion', '1');
+      const rect = c.getBoundingClientRect();
+      const aboveFold = rect.top < window.innerHeight * 0.85 && rect.bottom > 0;
+      if (aboveFold) return; // los visibles ya animan vía CSS cascada
+
+      // Pre-set: invisible y desplazado, todo en una asignación atómica
+      c.style.cssText += ';opacity:0;transform:translateY(28px) scale(0.96);';
+
+      inView(c, (entry) => {
+        animate(entry.target,
+          { opacity: 1, transform: 'translateY(0px) scale(1)' },
+          { type: 'spring', stiffness: 170, damping: 18, mass: 0.8 }
+        );
+        return () => {};
+      }, { margin: '-5% 0px -10% 0px' });
+    });
+  }
+
+  /* ── 2. HOVER 3D TILT en cards (desktop only) ─────────────────────
+     El card se inclina siguiendo al cursor con perspectiva.
+     Desactivamos la transición CSS sobre transform para no pelear. */
+  function wireTilt(scope) {
+    if (isMobile || reducedMotion) return;
+    scope = scope || document;
+    const cards = scope.querySelectorAll('.card:not([data-tilt])');
+    cards.forEach(card => {
+      card.setAttribute('data-tilt', '1');
+      card.style.transformStyle = 'preserve-3d';
+      card.style.willChange = 'transform';
+      // Sobrescribir transition existente para que el rAF no se sienta laggy
+      card.style.transition = 'box-shadow 0.22s cubic-bezier(0.4,0,0.2,1)';
+
+      let rafId = null;
+      let isHovering = false;
+      const MAX_TILT = 7; // grados máximos
+
+      function onEnter() { isHovering = true; }
+      function onMove(e) {
+        if (!isHovering) return;
+        const rect = card.getBoundingClientRect();
+        const cx = rect.left + rect.width / 2;
+        const cy = rect.top + rect.height / 2;
+        const dx = (e.clientX - cx) / (rect.width / 2);
+        const dy = (e.clientY - cy) / (rect.height / 2);
+        const rotY = dx * MAX_TILT;
+        const rotX = -dy * MAX_TILT;
+        if (rafId) cancelAnimationFrame(rafId);
+        rafId = requestAnimationFrame(() => {
+          card.style.transform =
+            `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(8px)`;
+        });
+      }
+      function onLeave() {
+        isHovering = false;
+        if (rafId) cancelAnimationFrame(rafId);
+        animate(card,
+          { transform: 'perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0px)' },
+          { type: 'spring', stiffness: 220, damping: 20 }
+        );
+      }
+      card.addEventListener('mouseenter', onEnter);
+      card.addEventListener('mousemove', onMove);
+      card.addEventListener('mouseleave', onLeave);
+    });
+  }
+
+  /* ── 3. FAB magnético + escala con spring al hover ────────────────
+     El botón + es atraído sutilmente hacia el cursor cuando se acerca. */
+  function wireMagneticFAB() {
+    if (isMobile || reducedMotion) return;
+    const fab = document.getElementById('fab-add');
+    if (!fab || fab.dataset.magnetic === '1') return;
+    fab.dataset.magnetic = '1';
+    fab.style.transition = 'none';
+    const RADIUS = 120; // pixels de "atracción"
+    const STRENGTH = 0.35;
+
+    let raf = null;
+    document.addEventListener('mousemove', (e) => {
+      const rect = fab.getBoundingClientRect();
+      const cx = rect.left + rect.width / 2;
+      const cy = rect.top + rect.height / 2;
+      const dx = e.clientX - cx;
+      const dy = e.clientY - cy;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        if (dist < RADIUS) {
+          const pull = (1 - dist / RADIUS) * STRENGTH;
+          animate(fab, { x: dx * pull, y: dy * pull, scale: 1 + pull * 0.08 }, {
+            type: 'spring', stiffness: 320, damping: 18
+          });
+        } else if (fab.style.transform && fab.style.transform !== 'translateX(0px) translateY(0px) scale(1)') {
+          animate(fab, { x: 0, y: 0, scale: 1 }, { type: 'spring', stiffness: 200, damping: 20 });
+        }
+      });
+    });
+  }
+
+  /* ── 4. PROGRESS BARS con spring fill cuando entran al viewport ───
+     Las barras (cat-fill, goal-fill, proj-fill) crecen con spring real. */
+  function wireProgressBars(scope) {
+    scope = scope || document;
+    const bars = scope.querySelectorAll('.cat-fill:not([data-spring]), .goal-fill:not([data-spring]), .proj-fill:not([data-spring])');
+    bars.forEach(bar => {
+      bar.setAttribute('data-spring', '1');
+      // Capturar el width final del inline style
+      const finalWidth = bar.style.width || getComputedStyle(bar).width;
+      bar.style.width = '0%';
+      // Cancelar la animación CSS existente (growX) para que no interfiera
+      bar.style.animation = 'none';
+
+      inView(bar, () => {
+        animate(bar, { width: ['0%', finalWidth] }, {
+          type: 'spring', stiffness: 90, damping: 16, mass: 0.8
+        });
+        return () => {};
+      }, { margin: '-2% 0px -5% 0px' });
+    });
+  }
+
+  /* ── 5. KPI VALUES: spring number count-up con overshoot suave ────
+     Reemplaza el count-up cubic existente con un spring (más vivo). */
+  function wireSpringKPIs(scope) {
+    scope = scope || document;
+    const els = scope.querySelectorAll('.kpi-value:not([data-spring-num])');
+    els.forEach(el => {
+      const text = el.textContent;
+      if (!text || text.trim() === '—') return;
+      const m = text.match(/([+-]?\d+(?:[.,]\d+)?)/);
+      if (!m) return;
+      const raw = m[1];
+      const target = parseFloat(raw.replace(',', '.'));
+      if (isNaN(target) || target === 0) { el.setAttribute('data-spring-num', '1'); return; }
+      const decMatch = raw.match(/[.,](\d+)/);
+      const decimals = decMatch ? decMatch[1].length : 0;
+      const useComma = raw.includes(',');
+      const showSign = raw.startsWith('+') && target > 0;
+      const fmt = (v) => {
+        const abs = Math.abs(v).toFixed(decimals);
+        const out = useComma ? abs.replace('.', ',') : abs;
+        return (v < 0 ? '-' : (showSign ? '+' : '')) + out;
+      };
+      el.setAttribute('data-spring-num', '1');
+      // Limpiar count-up CSS-side
+      el.removeAttribute('data-animated');
+
+      inView(el, () => {
+        animate(0, target, {
+          type: 'spring', stiffness: 90, damping: 18, mass: 0.6,
+          onUpdate: (v) => { el.textContent = text.replace(raw, fmt(v)); }
+        });
+        return () => {};
+      }, { margin: '0px' });
+    });
+  }
+
+  /* ── 6. TAB SWITCH: cuando cambia la solapa, las cards bouncy-stagger ─
+     Reemplaza el fadeInUp CSS plano por un spring orquestado. */
+  const _origSwitchTab = window.switchTab;
+  if (typeof _origSwitchTab === 'function') {
+    window.switchTab = function(tab) {
+      _origSwitchTab(tab);
+      setTimeout(() => {
+        const active = document.querySelector('.tab-content[data-tab="' + tab + '"]');
+        if (!active) return;
+        // Reset y re-animar las cards de esta solapa
+        const cards = active.querySelectorAll('.card');
+        cards.forEach(c => { c.removeAttribute('data-motion'); c.style.opacity = ''; c.style.transform = ''; });
+        animate(Array.from(cards),
+          { opacity: [0, 1], y: [22, 0], scale: [0.96, 1] },
+          {
+            type: 'spring', stiffness: 200, damping: 18, mass: 0.7,
+            delay: stagger(0.06, { startDelay: 0.04 })
+          }
+        );
+        cards.forEach(c => c.setAttribute('data-motion', '1'));
+        // Re-cablear progress bars / KPIs / tilt
+        setTimeout(() => {
+          wireProgressBars(active);
+          wireSpringKPIs(active);
+          wireTilt(active);
+        }, 50);
+      }, 30);
+    };
+  }
+
+  /* ── Wiring inicial + auto-detección de cards nuevos ───────────── */
+  function wireAll() {
+    wireMotionCards();
+    wireTilt();
+    wireMagneticFAB();
+    wireProgressBars();
+    wireSpringKPIs();
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', wireAll);
+  } else {
+    wireAll();
+  }
+
+  // MutationObserver: cuando renderXxx() inserta nuevos cards, los cableamos.
+  if (typeof MutationObserver !== 'undefined') {
+    let timer = null;
+    const mo = new MutationObserver((muts) => {
+      let needs = false;
+      for (const m of muts) {
+        for (const node of m.addedNodes) {
+          if (node.nodeType !== 1) continue;
+          if (node.classList?.contains('card') ||
+              node.querySelector?.('.card, .kpi-value, .cat-fill, .goal-fill, .proj-fill')) {
+            needs = true; break;
+          }
+        }
+        if (needs) break;
+      }
+      if (needs) {
+        clearTimeout(timer);
+        timer = setTimeout(wireAll, 60);
+      }
+    });
+    document.addEventListener('DOMContentLoaded', () => {
+      mo.observe(document.body, { childList: true, subtree: true });
+    });
+  }
 </script>
 </body>
 </html>
