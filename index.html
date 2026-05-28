@@ -1545,15 +1545,17 @@ function parseMedidas(data) {
   const cols = data.cols;
   const keys = cols.map((_, i) => cols[i] || ('col_' + i));
   const findIdx = (re) => cols.findIndex(c => re.test(c));
-  // Defaults posicionales: 0=fecha, 1=cintura, 2=cadera, 3=ratio, 4=pecho, 5=brazo, 6=muslo, 7=notas
-  let iF = findIdx(/fecha/i);              if (iF < 0) iF = 0;
-  let iCi = findIdx(/cintura(?!.*\/)/i);   if (iCi < 0) iCi = 1;
-  let iCa = findIdx(/cadera/i);            if (iCa < 0) iCa = 2;
-  let iR  = findIdx(/ratio|cintura\/cadera|indice/i); if (iR < 0) iR = 3;
-  let iP  = findIdx(/pecho/i);             if (iP < 0) iP = 4;
-  let iB  = findIdx(/brazo/i);             if (iB < 0) iB = 5;
-  let iM  = findIdx(/muslo/i);             if (iM < 0) iM = 6;
-  let iN  = findIdx(/nota/i);              if (iN < 0) iN = 7;
+  // La col A del sheet es un spacer vacío; los datos reales arrancan en B.
+  // Defaults posicionales: 1=fecha(B), 2=cintura(C), 3=cadera(D), 4=ratio(E),
+  //                        5=pecho(F), 6=brazo(G), 7=muslo(H), 8=notas(I)
+  let iF = findIdx(/fecha/i);              if (iF < 0) iF = 1;
+  let iCi = findIdx(/cintura(?!.*\/)/i);   if (iCi < 0) iCi = 2;
+  let iCa = findIdx(/cadera/i);            if (iCa < 0) iCa = 3;
+  let iR  = findIdx(/ratio|cintura\/cadera|indice/i); if (iR < 0) iR = 4;
+  let iP  = findIdx(/pecho/i);             if (iP < 0) iP = 5;
+  let iB  = findIdx(/brazo/i);             if (iB < 0) iB = 6;
+  let iM  = findIdx(/muslo/i);             if (iM < 0) iM = 7;
+  let iN  = findIdx(/nota/i);              if (iN < 0) iN = 8;
   return data.rows.map(r => ({
     fecha: parseGsheetDate(r[keys[iF]]),
     cintura: num(r[keys[iCi]]),
