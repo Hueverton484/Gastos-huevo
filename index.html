@@ -2956,7 +2956,8 @@ document.addEventListener('DOMContentLoaded', () => { switchTab(_CURRENT_TAB); }
 // ── Animación de números en KPIs (auto, sin tocar renders) ──
 function animateNumericKPIs(scope) {
   scope = scope || document;
-  const els = scope.querySelectorAll('.kpi-value:not([data-animated])');
+  // Excluir elementos con data-count: esos los maneja animateCounts() por separado
+  const els = scope.querySelectorAll('.kpi-value:not([data-animated]):not([data-count])');
   els.forEach(el => {
     const text = el.textContent;
     // Saltar si es '—' o no tiene número
@@ -3027,10 +3028,12 @@ function wireScrollReveal(scope) {
 let _wireTimer = null;
 function scheduleWire() {
   clearTimeout(_wireTimer);
+  // 120ms: deja que Motion wireSpringKPIs (t+60ms) corra primero y marque data-animated
+  // en los .kpi-value que maneja con spring. animateNumericKPIs solo tocará los que queden sin marcar.
   _wireTimer = setTimeout(() => {
     wireScrollReveal();
     animateNumericKPIs();
-  }, 40);
+  }, 120);
 }
 
 if (typeof MutationObserver !== 'undefined') {
@@ -3678,7 +3681,8 @@ load();
      Reemplaza el count-up cubic existente con un spring (más vivo). */
   function wireSpringKPIs(scope) {
     scope = scope || document;
-    const els = scope.querySelectorAll('.kpi-value:not([data-spring-num])');
+    // Excluir data-count: esos los maneja animateCounts(). No tocar data-animated para no re-activar el otro count-up.
+    const els = scope.querySelectorAll('.kpi-value:not([data-spring-num]):not([data-count])');
     els.forEach(el => {
       const text = el.textContent;
       if (!text || text.trim() === '—') return;
@@ -3697,8 +3701,7 @@ load();
         return (v < 0 ? '-' : (showSign ? '+' : '')) + out;
       };
       el.setAttribute('data-spring-num', '1');
-      // Limpiar count-up CSS-side
-      el.removeAttribute('data-animated');
+      el.setAttribute('data-animated', '1'); // bloquear re-ejecución de animateNumericKPIs
 
       inView(el, () => {
         animate(0, target, {
