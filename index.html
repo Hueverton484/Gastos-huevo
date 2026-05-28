@@ -266,6 +266,41 @@ html[data-theme="dark"] .facu-clase-title { color: #E8E5DE; }
 .facu-materia-name { flex: 1; min-width: 0; font-size: 14px; color: #1F1F1E; line-height: 1.3; }
 .facu-mat-cod { font-size: 11px; color: #C9C7BF; font-weight: 500; margin-left: 4px; }
 html[data-theme="dark"] .facu-mat-cod { color: #6B6A64; }
+/* Mapa de correlativas */
+.plan-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 14px; }
+.plan-legend .leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #79786F; }
+.plan-legend .leg .sw { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
+.plan-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; margin: 0 -4px; }
+.plan-cols { display: flex; gap: 12px; padding: 0 4px; min-width: min-content; align-items: flex-start; }
+.plan-col { display: flex; flex-direction: column; gap: 8px; width: 158px; flex: 0 0 auto; }
+.plan-col-head { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #9A988F; padding: 2px 2px 4px; min-height: 15px; white-space: nowrap; }
+.plan-mat {
+  background: #FAFAF7; border: 1px solid #ECECE8; border-left: 4px solid #D8D7D0;
+  border-radius: 9px; padding: 9px 10px; cursor: pointer; position: relative;
+  transition: transform 0.14s ease, box-shadow 0.14s ease;
+}
+.plan-mat:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
+.plan-mat:active { transform: scale(0.98); }
+.plan-mat.optativa { cursor: default; opacity: 0.7; border-left-style: dashed; }
+.plan-mat.aprobada { border-left-color: #1D9E75; background: rgba(29,158,117,0.06); }
+.plan-mat.regular  { border-left-color: #C18E48; background: rgba(193,142,72,0.07); }
+.plan-mat.cursando { border-left-color: #4A90D9; background: rgba(74,144,217,0.06); }
+.plan-mat.pendiente { border-left-color: #D8D7D0; }
+.plan-mat-cod { font-size: 10px; font-weight: 700; color: #ABA9A0; }
+.plan-mat-name { font-size: 12px; font-weight: 600; color: #1F1F1E; line-height: 1.25; margin: 2px 0 5px; }
+.plan-mat-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.plan-mat-vh { font-size: 9.5px; font-weight: 700; color: #9A988F; background: #F2F1ED; padding: 1px 5px; border-radius: 5px; white-space: nowrap; }
+.plan-mat-req { font-size: 9.5px; color: #ABA9A0; text-align: right; line-height: 1.2; }
+.plan-mat.disponible { box-shadow: 0 0 0 2px rgba(29,158,117,0.35); }
+.plan-mat-badge { position: absolute; top: -7px; right: -6px; font-size: 8.5px; font-weight: 700; color: #fff; background: #1D9E75; padding: 2px 6px; border-radius: 8px; box-shadow: 0 1px 4px rgba(0,0,0,0.18); }
+.plan-hint { font-size: 11px; color: #C9C7BF; margin-top: 10px; }
+html[data-theme="dark"] .plan-mat { background: #232328; border-color: rgba(255,255,255,0.07); }
+html[data-theme="dark"] .plan-mat.aprobada { background: rgba(29,158,117,0.12); }
+html[data-theme="dark"] .plan-mat.regular { background: rgba(193,142,72,0.12); }
+html[data-theme="dark"] .plan-mat.cursando { background: rgba(74,144,217,0.13); }
+html[data-theme="dark"] .plan-mat-name { color: #E8E5DE; }
+html[data-theme="dark"] .plan-mat-vh { background: rgba(255,255,255,0.08); color: #8E8C84; }
+html[data-theme="dark"] .plan-col-head { color: #6B6A64; }
 .facu-estado {
   font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 20px;
   border: none; cursor: pointer; font-family: inherit; white-space: nowrap;
@@ -2618,6 +2653,110 @@ function facuDeleteMateria(id) {
   _FACU.materias = _FACU.materias.filter(x => x.id !== id);
   saveFacu(); renderFacultad();
 }
+function facuCycleByCodigo(codigo) {
+  loadFacu();
+  const m = _FACU.materias.find(x => x.codigo === codigo);
+  if (!m) return;
+  const i = FACU_ESTADO_ORDEN.indexOf(m.estado);
+  m.estado = FACU_ESTADO_ORDEN[(i + 1) % FACU_ESTADO_ORDEN.length];
+  saveFacu(); renderFacultad();
+}
+
+// Plan de estudios de Contador (correlativas leídas del plan oficial).
+// tramo: 't1' | 't2' | 'cp'. req: códigos correlativos. reqLabel: texto a mostrar.
+// (*) 278, 1359 y 1361 no muestran correlativa visible en el gráfico: estimadas, verificar.
+const FACU_PLAN = (() => {
+  const T1 = ['245', '241', '242', '246', '244', '243'];
+  const cp = (nombre, vh, req) => ({ nombre, vh, req: req || [], tramo: 'cp' });
+  const t1 = (nombre, vh) => ({ nombre, vh, req: [], tramo: 't1' });
+  const t2 = (nombre, vh) => ({ nombre, vh, req: T1.slice(), reqLabel: '1er tramo', tramo: 't2' });
+  return {
+    materias: {
+      '245': t1('Álgebra', 4),
+      '241': t1('Análisis Matemático I', 6),
+      '242': t1('Economía', 4),
+      '246': t1('Historia Econ. y Social Gral', 4),
+      '244': t1('Metodología de las Cs. Sociales', 4),
+      '243': t1('Sociología', 4),
+      '248': t2('Estadística I', 6),
+      '252': t2('Administración General', 4),
+      '250': t2('Microeconomía I', 4),
+      '247': t2('Teoría Contable', 6),
+      '249': t2('Hist. Econ. y Social Arg.', 4),
+      '251': t2('Instituciones de Dho. Público', 4),
+      '274': cp('Sistemas Administrativos', 4, ['252']),
+      '275': cp('Tecnología de la Información', 6, ['274']),
+      '276': cp('Cálculo Financiero', 4, ['248']),
+      '278': cp('Macroeconomía y Polít. Económica', 6, []),
+      '351': cp('Sistemas Contables', 6, ['247']),
+      '353': cp('Sistemas de Costos', 4, ['247']),
+      '1359': cp('Derecho Económico', 4, []),
+      '279': cp('Administración Financiera', 6, ['276']),
+      '1352': cp('Contabilidad Financiera', 6, ['351', '353']),
+      '362': cp('Gestión y Costos (Contadores)', 6, ['353']),
+      '273': cp('Instituciones de Dcho. Privado', 4, ['1359']),
+      '355': cp('Auditoría', 6, ['362', '1352']),
+      '354': cp('Derecho del Trab. y Seg. Social', 4, ['251', '1359']),
+      '1360': cp('Dcho. Crediticio, Bursátil e Insolv.', 4, ['273', '354']),
+      '356': cp('Teoría y Técnica Impositiva I', 6, ['251', '1352']),
+      '357': cp('Teoría y Técnica Impositiva II', 6, ['356']),
+      '1358': cp('Taller Actuación Prof. Judicial', 2, ['355', '1360']),
+      '1361': cp('Taller Práctica Prof. en Org.', 2, ['355', '1360'])
+    }
+  };
+})();
+
+function facuPlanCard(cod, estadoMap) {
+  const m = FACU_PLAN.materias[cod];
+  const est = estadoMap[cod] || 'pendiente';
+  const reqTxt = m.reqLabel ? m.reqLabel : (m.req.length ? m.req.join(' · ') : '');
+  // "Disponible para cursar": pendiente y con todas sus correlativas aprobadas
+  const reqsOk = m.req.length === 0 || m.req.every(r => estadoMap[r] === 'aprobada');
+  const available = est === 'pendiente' && reqsOk;
+  return `<div class="plan-mat ${est}${available ? ' disponible' : ''}" onclick="facuCycleByCodigo('${cod}')">
+    ${available ? '<span class="plan-mat-badge">Disponible</span>' : ''}
+    <div class="plan-mat-cod">${cod}</div>
+    <div class="plan-mat-name">${esc(m.nombre)}</div>
+    <div class="plan-mat-foot"><span class="plan-mat-vh">${m.vh}VH</span>${reqTxt ? '<span class="plan-mat-req">' + esc(reqTxt) + '</span>' : ''}</div>
+  </div>`;
+}
+function facuPlanOptCard() {
+  return `<div class="plan-mat optativa"><div class="plan-mat-cod">—</div><div class="plan-mat-name">Optativa</div><div class="plan-mat-foot"><span class="plan-mat-vh">—</span></div></div>`;
+}
+function facuPlanMapHtml() {
+  const estadoMap = {};
+  (_FACU.materias || []).forEach(m => { if (m.codigo) estadoMap[m.codigo] = m.estado; });
+  // Nivel de cada materia = profundidad de sus correlativas (cp mínimo nivel 2)
+  const lvl = {};
+  const computeLevel = (cod) => {
+    if (lvl[cod] != null) return lvl[cod];
+    lvl[cod] = 0; // guarda anti-ciclos
+    const m = FACU_PLAN.materias[cod];
+    let base = m.req.length === 0 ? 0 : 1 + Math.max(...m.req.map(r => FACU_PLAN.materias[r] ? computeLevel(r) : 0));
+    if (m.tramo === 'cp') base = Math.max(base, 2);
+    lvl[cod] = base;
+    return base;
+  };
+  Object.keys(FACU_PLAN.materias).forEach(computeLevel);
+  const cols = {};
+  Object.keys(FACU_PLAN.materias).forEach(cod => { (cols[lvl[cod]] = cols[lvl[cod]] || []).push(cod); });
+  const levels = Object.keys(cols).map(Number).sort((a, b) => a - b);
+  const headFor = L => L === 0 ? 'Primer tramo' : (L === 1 ? 'Segundo tramo' : (L === 2 ? 'Ciclo profesional' : '&nbsp;'));
+  const OPT_LEVEL = 3;
+  const colsHtml = levels.map(L => {
+    const mats = cols[L].slice().sort((a, b) => (+a) - (+b));
+    let cards = mats.map(cod => facuPlanCard(cod, estadoMap)).join('');
+    if (L === OPT_LEVEL) cards += facuPlanOptCard() + facuPlanOptCard();
+    return `<div class="plan-col"><div class="plan-col-head">${headFor(L)}</div>${cards}</div>`;
+  }).join('');
+  const leg = (color, txt) => `<span class="leg"><span class="sw" style="background:${color};"></span>${txt}</span>`;
+  return `<div class="plan-legend">
+      ${leg('#1D9E75', 'Aprobada')}${leg('#C18E48', 'Regular')}${leg('#4A90D9', 'Cursando')}${leg('#D8D7D0', 'Pendiente')}
+      <span class="leg"><span class="sw" style="background:#fff;box-shadow:0 0 0 2px rgba(29,158,117,0.45);"></span>Disponible para cursar</span>
+    </div>
+    <div class="plan-scroll"><div class="plan-cols">${colsHtml}</div></div>
+    <div class="plan-hint">Deslizá horizontal para ver el ciclo profesional · Tocá una materia para cambiar su estado · Los números son las correlativas necesarias.</div>`;
+}
 
 function renderFacultad() {
   const container = document.getElementById('facultad-content');
@@ -2757,6 +2896,13 @@ function renderFacultad() {
           }).join('')}
           <div class="facu-empty-mini">Tocá el estado de una materia para avanzarlo: Pendiente → Cursando → Regular → Aprobada.</div>`}
     </div>
+
+    ${totalMat > 0 ? `<div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <div class="card-title">🗺️ Plan de correlativas</div>
+      </div>
+      ${facuPlanMapHtml()}
+    </div>` : ''}
 
     <div class="footer-meta">Estos datos se guardan solo en este dispositivo</div>
   `;
