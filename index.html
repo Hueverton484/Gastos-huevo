@@ -184,6 +184,68 @@ html[data-theme="dark"] .setup-banner .text { color: #FCA5A5; }
 .gauge-value { font-size: 40px; font-weight: 700; color: #FFFFFF; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
 .gauge-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; color: rgba(255,255,255,0.5); margin-top: 3px; }
 @media (prefers-reduced-motion: reduce) { .gauge-fill { transition: none; } }
+/* ═══════════ Facultad ═══════════ */
+.facu-list { display: flex; flex-direction: column; gap: 10px; }
+.facu-parcial {
+  display: flex; align-items: center; gap: 14px;
+  background: #FAFAF7; border: 1px solid #ECECE8; border-radius: 12px;
+  padding: 14px 16px; transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.facu-parcial:hover { transform: translateY(-1px); box-shadow: 0 4px 14px rgba(0,0,0,0.06); }
+.facu-parcial.done { opacity: 0.55; }
+.facu-parcial.done .facu-parcial-title { text-decoration: line-through; }
+.facu-parcial-main { flex: 1; min-width: 0; }
+.facu-parcial-title { font-size: 14.5px; font-weight: 600; color: #1F1F1E; }
+.facu-parcial-meta { font-size: 12px; color: #79786F; margin-top: 3px; }
+.facu-countdown {
+  font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 9px;
+  white-space: nowrap; text-align: center; line-height: 1.2; min-width: 64px;
+}
+.facu-countdown small { display: block; font-size: 9px; font-weight: 600; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.04em; }
+.facu-countdown.urgent { background: rgba(163,45,45,0.12); color: #A32D2D; }
+.facu-countdown.soon   { background: rgba(193,142,72,0.15); color: #9A6E2E; }
+.facu-countdown.ok     { background: rgba(29,158,117,0.13); color: #1D9E75; }
+.facu-countdown.past   { background: #F2F1ED; color: #ABA9A0; }
+.facu-actions { display: flex; gap: 4px; flex-shrink: 0; }
+.facu-icon-btn {
+  width: 32px; height: 32px; border-radius: 8px; border: 1px solid #ECECE8;
+  background: #FFFFFF; cursor: pointer; font-size: 14px; color: #79786F;
+  display: flex; align-items: center; justify-content: center; font-family: inherit;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.facu-icon-btn:hover { background: #F2F1ED; color: #1F1F1E; }
+.facu-icon-btn.danger:hover { background: rgba(163,45,45,0.1); color: #A32D2D; border-color: rgba(163,45,45,0.3); }
+.facu-icon-btn.check.active { background: #1D9E75; color: #FFFFFF; border-color: #1D9E75; }
+.facu-clase {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 10px;
+  transition: background 0.15s ease;
+}
+.facu-clase:hover { background: #FAFAF7; }
+.facu-clase + .facu-clase { border-top: 1px solid #F2F1ED; }
+.facu-check {
+  width: 22px; height: 22px; border-radius: 6px; border: 2px solid #D8D7D0;
+  background: #FFFFFF; cursor: pointer; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: transparent; transition: all 0.15s ease;
+}
+.facu-check:hover { border-color: #1D9E75; }
+.facu-check.checked { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+.facu-clase-body { flex: 1; min-width: 0; cursor: pointer; }
+.facu-clase-title { font-size: 14px; color: #1F1F1E; line-height: 1.3; }
+.facu-clase-materia { font-size: 11.5px; color: #ABA9A0; margin-top: 2px; }
+.facu-clase.done .facu-clase-title { text-decoration: line-through; color: #ABA9A0; }
+.facu-empty { padding: 30px 0; text-align: center; color: #ABA9A0; font-size: 13px; }
+/* Dark mode Facultad */
+html[data-theme="dark"] .facu-parcial { background: #232328; border-color: rgba(255,255,255,0.07); }
+html[data-theme="dark"] .facu-parcial-title { color: #E8E5DE; }
+html[data-theme="dark"] .facu-parcial-meta { color: #8E8C84; }
+html[data-theme="dark"] .facu-icon-btn { background: #2A2A30; border-color: rgba(255,255,255,0.08); color: #8E8C84; }
+html[data-theme="dark"] .facu-icon-btn:hover { background: #34343C; color: #E8E5DE; }
+html[data-theme="dark"] .facu-clase:hover { background: #232328; }
+html[data-theme="dark"] .facu-clase + .facu-clase { border-top-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .facu-check { background: #2A2A30; border-color: rgba(255,255,255,0.15); }
+html[data-theme="dark"] .facu-clase-title { color: #E8E5DE; }
 
 /* Dark mode comidas */
 html[data-theme="dark"] .comida-day { border-bottom-color: rgba(255,255,255,0.06); }
@@ -1012,6 +1074,10 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
       <div class="sk-loading-text">Cargando datos de salud…</div>
     </div>
   </div>
+
+  <div class="tab-content" data-tab="facultad" hidden>
+    <div id="facultad-content"></div>
+  </div>
 </div>
 
 <button class="fab" id="fab-add" aria-label="Cargar gasto o ingreso" title="Cargar nuevo">+</button>
@@ -1033,6 +1099,10 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
   <button class="tab-btn" data-tab="salud" onclick="switchTab('salud')" role="tab" aria-label="Salud">
     <span class="tab-icon">❤️</span>
     <span class="tab-label">Salud</span>
+  </button>
+  <button class="tab-btn" data-tab="facultad" onclick="switchTab('facultad')" role="tab" aria-label="Facultad">
+    <span class="tab-icon">🎓</span>
+    <span class="tab-label">Facultad</span>
   </button>
 </nav>
 
@@ -1185,6 +1255,38 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
       </div>
     </form>
     <div class="modal-status" id="comida-status"></div>
+  </div>
+</div>
+
+<!-- Modal: agregar parcial / clase (Facultad, guardado local) -->
+<div class="modal-overlay" id="facu-modal" role="dialog" aria-modal="true">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <div class="modal-title" id="facu-modal-title">🎓 Agregar a Facultad</div>
+      <button class="modal-close" data-modal-close="facu-modal" aria-label="Cerrar">×</button>
+    </div>
+    <div class="modal-tabs" id="facu-modal-tabs">
+      <button type="button" class="modal-tab active" data-facu-tab="parcial">📝 Parcial</button>
+      <button type="button" class="modal-tab" data-facu-tab="clase">🎬 Clase</button>
+    </div>
+    <form class="form-section active" id="form-facu-parcial">
+      <input type="text" id="facu-p-materia" placeholder="Materia / parcial (ej: Análisis II)" required>
+      <input type="date" id="facu-p-fecha" required>
+      <input type="text" id="facu-p-nota" placeholder="Nota (ej: aula 302, temas 1-4) — opcional">
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-modal-close="facu-modal">Cancelar</button>
+        <button type="submit" class="btn-save">Agregar parcial</button>
+      </div>
+    </form>
+    <form class="form-section" id="form-facu-clase">
+      <input type="text" id="facu-c-titulo" placeholder="Clase para ver (ej: Clase 7 - Integrales)" required>
+      <input type="text" id="facu-c-materia" placeholder="Materia (opcional)">
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-modal-close="facu-modal">Cancelar</button>
+        <button type="submit" class="btn-save">Agregar clase</button>
+      </div>
+    </form>
+    <div class="modal-status" id="facu-status"></div>
   </div>
 </div>
 
@@ -2309,6 +2411,208 @@ function renderComidas() {
 }
 
 /* ════════════════════════════════════════════════════════
+   Facultad — parciales y clases (guardado local en el dispositivo)
+   ════════════════════════════════════════════════════════ */
+const FACU_KEY = 'misgastos_facultad_v1';
+let _FACU = null;
+
+function loadFacu() {
+  if (_FACU) return _FACU;
+  try {
+    const raw = localStorage.getItem(FACU_KEY);
+    _FACU = raw ? JSON.parse(raw) : null;
+  } catch(e) { _FACU = null; }
+  if (!_FACU || typeof _FACU !== 'object') _FACU = {};
+  if (!Array.isArray(_FACU.parciales)) _FACU.parciales = [];
+  if (!Array.isArray(_FACU.clases)) _FACU.clases = [];
+  return _FACU;
+}
+function saveFacu() {
+  try { localStorage.setItem(FACU_KEY, JSON.stringify(_FACU)); } catch(e){}
+}
+function facuId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+
+function facuDaysUntil(fechaStr) {
+  if (!fechaStr) return null;
+  const parts = fechaStr.split('-');
+  if (parts.length !== 3) return null;
+  const target = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+  target.setHours(0,0,0,0);
+  const today = new Date(); today.setHours(0,0,0,0);
+  return Math.round((target - today) / 86400000);
+}
+function facuCountdown(fechaStr, done) {
+  if (done) return { cls: 'past', big: '✓', small: 'rendido' };
+  const d = facuDaysUntil(fechaStr);
+  if (d === null) return { cls: 'past', big: '—', small: '' };
+  if (d < 0) return { cls: 'past', big: Math.abs(d), small: d === -1 ? 'día atrás' : 'días atrás' };
+  if (d === 0) return { cls: 'urgent', big: 'Hoy', small: '' };
+  if (d === 1) return { cls: 'urgent', big: 'Mañana', small: '' };
+  const cls = d <= 3 ? 'urgent' : (d <= 7 ? 'soon' : 'ok');
+  return { cls, big: d, small: 'días' };
+}
+function facuFmtDate(fechaStr) {
+  const parts = (fechaStr || '').split('-');
+  if (parts.length !== 3) return '';
+  const dd = new Date(+parts[0], +parts[1] - 1, +parts[2]);
+  const wd = ['dom','lun','mar','mié','jue','vie','sáb'][dd.getDay()];
+  const mes = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'][dd.getMonth()];
+  return `${wd} ${dd.getDate()} ${mes} ${dd.getFullYear()}`;
+}
+
+function facuAddParcial(materia, fecha, nota) {
+  loadFacu();
+  _FACU.parciales.push({ id: facuId(), materia: materia.trim(), fecha, nota: (nota || '').trim(), done: false });
+  saveFacu(); renderFacultad();
+}
+function facuAddClase(titulo, materia) {
+  loadFacu();
+  _FACU.clases.push({ id: facuId(), titulo: titulo.trim(), materia: (materia || '').trim(), done: false });
+  saveFacu(); renderFacultad();
+}
+function facuToggleParcial(id) {
+  loadFacu();
+  const p = _FACU.parciales.find(x => x.id === id);
+  if (p) { p.done = !p.done; saveFacu(); renderFacultad(); }
+}
+function facuToggleClase(id) {
+  loadFacu();
+  const c = _FACU.clases.find(x => x.id === id);
+  if (c) { c.done = !c.done; saveFacu(); renderFacultad(); }
+}
+function facuDeleteParcial(id) {
+  loadFacu();
+  _FACU.parciales = _FACU.parciales.filter(x => x.id !== id);
+  saveFacu(); renderFacultad();
+}
+function facuDeleteClase(id) {
+  loadFacu();
+  _FACU.clases = _FACU.clases.filter(x => x.id !== id);
+  saveFacu(); renderFacultad();
+}
+
+function renderFacultad() {
+  const container = document.getElementById('facultad-content');
+  if (!container) return;
+  loadFacu();
+
+  // Parciales: pendientes (por fecha asc) primero, rendidos al final
+  const parciales = [..._FACU.parciales].sort((a, b) => {
+    if (a.done !== b.done) return a.done ? 1 : -1;
+    return (a.fecha || '').localeCompare(b.fecha || '');
+  });
+  const pendientes = _FACU.parciales.filter(p => !p.done);
+  const proximo = pendientes
+    .map(p => facuDaysUntil(p.fecha))
+    .filter(d => d !== null && d >= 0)
+    .sort((a, b) => a - b)[0];
+  const clasesPend = _FACU.clases.filter(c => !c.done).length;
+
+  const proxStr = proximo === undefined ? '—'
+    : (proximo === 0 ? 'Hoy' : (proximo === 1 ? 'Mañana' : proximo + ' días'));
+
+  const parcialHtml = (p) => {
+    const cd = facuCountdown(p.fecha, p.done);
+    return `<div class="facu-parcial${p.done ? ' done' : ''}">
+      <div class="facu-countdown ${cd.cls}">${cd.big}${cd.small ? '<small>' + cd.small + '</small>' : ''}</div>
+      <div class="facu-parcial-main">
+        <div class="facu-parcial-title">${esc(p.materia)}</div>
+        <div class="facu-parcial-meta">${facuFmtDate(p.fecha)}${p.nota ? ' · ' + esc(p.nota) : ''}</div>
+      </div>
+      <div class="facu-actions">
+        <button class="facu-icon-btn check${p.done ? ' active' : ''}" title="${p.done ? 'Marcar pendiente' : 'Marcar rendido'}" onclick="facuToggleParcial('${p.id}')">✓</button>
+        <button class="facu-icon-btn danger" title="Eliminar" onclick="facuDeleteParcial('${p.id}')">🗑</button>
+      </div>
+    </div>`;
+  };
+
+  const claseHtml = (c) => `<div class="facu-clase${c.done ? ' done' : ''}">
+    <div class="facu-check${c.done ? ' checked' : ''}" onclick="facuToggleClase('${c.id}')">✓</div>
+    <div class="facu-clase-body" onclick="facuToggleClase('${c.id}')">
+      <div class="facu-clase-title">${esc(c.titulo)}</div>
+      ${c.materia ? '<div class="facu-clase-materia">' + esc(c.materia) + '</div>' : ''}
+    </div>
+    <button class="facu-icon-btn danger" title="Eliminar" onclick="facuDeleteClase('${c.id}')">🗑</button>
+  </div>`;
+
+  container.innerHTML = `
+    <div class="header-band">
+      <div class="header" style="border-bottom:none;padding-bottom:0;margin-bottom:18px;">
+        <div>
+          <div class="title">Facultad</div>
+          <div class="subtitle">Parciales y clases para ver</div>
+        </div>
+        <div class="day-info">guardado en este dispositivo</div>
+      </div>
+      <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
+        <div class="kpi">
+          <div class="kpi-label">Próximo parcial</div>
+          <div class="kpi-value" style="font-size:${proxStr.length > 4 ? '18px' : '24px'};">${proxStr}</div>
+          <div class="kpi-hint">${pendientes.length ? 'el más cercano' : 'sin parciales'}</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Parciales</div>
+          <div class="kpi-value">${pendientes.length}</div>
+          <div class="kpi-hint">pendientes</div>
+        </div>
+        <div class="kpi">
+          <div class="kpi-label">Clases por ver</div>
+          <div class="kpi-value">${clasesPend}</div>
+          <div class="kpi-hint">de ${_FACU.clases.length} en total</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <div class="card-title">📝 Parciales</div>
+        <button class="refresh-btn" onclick="openFacuModal('parcial')">+ Agregar</button>
+      </div>
+      ${parciales.length === 0
+        ? '<div class="facu-empty">No tenés parciales cargados. Tocá “+ Agregar” para sumar uno.</div>'
+        : '<div class="facu-list">' + parciales.map(parcialHtml).join('') + '</div>'}
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <div class="card-title">🎬 Clases para ver</div>
+        <button class="refresh-btn" onclick="openFacuModal('clase')">+ Agregar</button>
+      </div>
+      ${_FACU.clases.length === 0
+        ? '<div class="facu-empty">No hay clases pendientes. Agregá las que tengas que mirar.</div>'
+        : _FACU.clases.map(claseHtml).join('')}
+    </div>
+
+    <div class="footer-meta">Estos datos se guardan solo en este dispositivo</div>
+  `;
+  container.classList.add('content-fade-in');
+  setTimeout(() => container.classList.remove('content-fade-in'), 500);
+}
+
+// Abre el modal de Facultad en la pestaña indicada ('parcial' | 'clase')
+function openFacuModal(which) {
+  const overlay = document.getElementById('facu-modal');
+  if (!overlay) return;
+  facuModalSwitch(which || 'parcial');
+  // Limpiar inputs
+  ['facu-p-materia','facu-p-nota','facu-c-titulo','facu-c-materia'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+  const fecha = document.getElementById('facu-p-fecha');
+  if (fecha) fecha.value = todayLocalStr();
+  const st = document.getElementById('facu-status');
+  if (st) { st.textContent = ''; st.className = 'modal-status'; }
+  overlay.classList.add('show');
+}
+function facuModalSwitch(which) {
+  document.querySelectorAll('#facu-modal-tabs .modal-tab').forEach(t => {
+    t.classList.toggle('active', t.getAttribute('data-facu-tab') === which);
+  });
+  document.getElementById('form-facu-parcial')?.classList.toggle('active', which === 'parcial');
+  document.getElementById('form-facu-clase')?.classList.toggle('active', which === 'clase');
+}
+
+/* ════════════════════════════════════════════════════════
    Personal Apps Script - cargar nuevos datos
    ════════════════════════════════════════════════════════ */
 const PERSONAL_URL_KEY = 'misgastos_personal_url';
@@ -2404,11 +2708,35 @@ document.addEventListener('DOMContentLoaded', () => {
   // Escape para cerrar
   document.addEventListener('keydown', e => {
     if (e.key === 'Escape') {
-      ['peso-modal','medidas-modal','gym-modal','comida-modal','setup-modal'].forEach(id => {
+      ['peso-modal','medidas-modal','gym-modal','comida-modal','facu-modal','setup-modal'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.classList.remove('show');
       });
     }
+  });
+
+  // ─── Facultad: pestañas y formularios del modal ───
+  document.querySelectorAll('#facu-modal-tabs .modal-tab').forEach(t => {
+    t.addEventListener('click', () => facuModalSwitch(t.getAttribute('data-facu-tab')));
+  });
+  const formFacuP = document.getElementById('form-facu-parcial');
+  if (formFacuP) formFacuP.addEventListener('submit', e => {
+    e.preventDefault();
+    const materia = document.getElementById('facu-p-materia').value.trim();
+    const fecha = document.getElementById('facu-p-fecha').value;
+    const nota = document.getElementById('facu-p-nota').value;
+    if (!materia || !fecha) { setStatus('facu-status', 'Completá materia y fecha', 'error'); return; }
+    facuAddParcial(materia, fecha, nota);
+    closePersonalModal('facu-modal');
+  });
+  const formFacuC = document.getElementById('form-facu-clase');
+  if (formFacuC) formFacuC.addEventListener('submit', e => {
+    e.preventDefault();
+    const titulo = document.getElementById('facu-c-titulo').value.trim();
+    const materia = document.getElementById('facu-c-materia').value;
+    if (!titulo) { setStatus('facu-status', 'Escribí el nombre de la clase', 'error'); return; }
+    facuAddClase(titulo, materia);
+    closePersonalModal('facu-modal');
   });
 
   // ─── Form setup (URL) ───
@@ -2993,6 +3321,7 @@ function switchTab(tab) {
   if (tab === 'salud' && typeof loadSaludData === 'function') loadSaludData();
   if (tab === 'gym' && typeof loadGymData === 'function') loadGymData();
   if (tab === 'comidas' && typeof loadComidasData === 'function') loadComidasData();
+  if (tab === 'facultad' && typeof renderFacultad === 'function') renderFacultad();
   // FAB visible en todas las solapas con acción contextual
   if (fab) fab.style.display = 'flex';
   // Scroll arriba al cambiar de solapa
@@ -3416,6 +3745,7 @@ function setupAddForm() {
     else if (_CURRENT_TAB === 'salud') openSaludChooser();
     else if (_CURRENT_TAB === 'gym') openPersonalModal('gym-modal');
     else if (_CURRENT_TAB === 'comidas') openPersonalModal('comida-modal');
+    else if (_CURRENT_TAB === 'facultad') openFacuModal('parcial');
   });
   closeBtn.addEventListener('click', closeModal);
   document.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', closeModal));
