@@ -3583,6 +3583,10 @@ load();
     const cards = scope.querySelectorAll('.card:not([data-tilt])');
     cards.forEach(card => {
       card.setAttribute('data-tilt', '1');
+      // Tarjetas grandes (listas de comidas, sesiones, historial): no aplicar tilt
+      // porque son muy altas y el efecto 3D se ve mal y puede conflictuarse con la entrada spring.
+      if (card.offsetHeight > 320) return;
+
       card.style.transformStyle = 'preserve-3d';
       card.style.willChange = 'transform';
       // Sobrescribir transition existente para que el rAF no se sienta laggy
@@ -3590,11 +3594,14 @@ load();
 
       let rafId = null;
       let isHovering = false;
-      const MAX_TILT = 7; // grados máximos
+      let ready = false;
+      const MAX_TILT = 5; // grados máximos (reducidos de 7)
+      // Esperar que la animación de entrada termine antes de habilitar el tilt
+      setTimeout(() => { ready = true; }, 700);
 
-      function onEnter() { isHovering = true; }
+      function onEnter() { if (ready) isHovering = true; }
       function onMove(e) {
-        if (!isHovering) return;
+        if (!isHovering || !ready) return;
         const rect = card.getBoundingClientRect();
         const cx = rect.left + rect.width / 2;
         const cy = rect.top + rect.height / 2;
@@ -3605,7 +3612,7 @@ load();
         if (rafId) cancelAnimationFrame(rafId);
         rafId = requestAnimationFrame(() => {
           card.style.transform =
-            `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(8px)`;
+            `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(6px)`;
         });
       }
       function onLeave() {
