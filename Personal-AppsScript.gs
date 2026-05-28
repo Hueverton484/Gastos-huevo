@@ -9,6 +9,11 @@
  *  4. Deploy → New deployment → tipo "Web app"
  *  5. Configurá: Execute as = Me / Who has access = Anyone
  *  6. Copiá la URL terminada en /exec → pegala en la app
+ *
+ * Si YA lo tenías desplegado y estás actualizando (p.ej. para sumar Facultad):
+ *  - Pegá este código completo, guardá (Ctrl+S)
+ *  - Deploy → Manage deployments → (ícono lápiz para editar) → Version: "New version" → Deploy
+ *  - La URL /exec NO cambia, así que no hay que reconfigurar nada en la app.
  */
 
 const MESES_ES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio',
@@ -26,6 +31,8 @@ function doGet(e) {
     else if (action === 'add_medida')    result = addMedida(p);
     else if (action === 'add_actividad') result = addActividad(p);
     else if (action === 'add_comida')    result = addComida(p);
+    else if (action === 'get_facultad')  result = getFacultad();
+    else if (action === 'save_facultad') result = saveFacultad(p);
     else result = { ok: false, error: 'Acción desconocida: ' + action };
   } catch (err) {
     result = { ok: false, error: String(err && err.message ? err.message : err) };
@@ -36,6 +43,44 @@ function doGet(e) {
       .setMimeType(ContentService.MimeType.JAVASCRIPT);
   }
   return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
+}
+
+/**
+ * POST para guardar Facultad (el JSON puede ser grande y no entra cómodo en la URL).
+ * La app envía: { action: 'save_facultad', data: { ...estado de facultad... } }
+ */
+function doPost(e) {
+  let result;
+  try {
+    const body = JSON.parse((e && e.postData && e.postData.contents) || '{}');
+    if (body.action === 'save_facultad') {
+      result = saveFacultad({ data: JSON.stringify(body.data || {}) });
+    } else {
+      result = { ok: false, error: 'Acción POST desconocida: ' + body.action };
+    }
+  } catch (err) {
+    result = { ok: false, error: String(err && err.message ? err.message : err) };
+  }
+  return ContentService.createTextOutput(JSON.stringify(result)).setMimeType(ContentService.MimeType.JSON);
+}
+
+/* ── FACULTAD (parciales, clases y materias — guardado como JSON en una celda) ── */
+function facuSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sh = ss.getSheetByName('Facultad');
+  if (!sh) {
+    sh = ss.insertSheet('Facultad');
+    sh.getRange('A1').setNote('Datos de la solapa Facultad (JSON). No editar a mano.');
+  }
+  return sh;
+}
+function getFacultad() {
+  const val = facuSheet_().getRange('A1').getValue();
+  return { ok: true, facultad: val ? String(val) : '' };
+}
+function saveFacultad(p) {
+  facuSheet_().getRange('A1').setValue(p.data || '');
+  return { ok: true };
 }
 
 function parseDate(s) {

@@ -2562,8 +2562,61 @@ function facuDefaultMaterias() {
   ];
   return lista.map(([nombre, codigo, estado]) => ({ id: facuId(), nombre, codigo, estado }));
 }
-function saveFacu() {
+// Guarda solo en el dispositivo (sin tocar timestamp ni empujar a la nube).
+function saveFacuLocal() {
   try { localStorage.setItem(FACU_KEY, JSON.stringify(_FACU)); } catch(e){}
+}
+// Guarda un cambio del usuario: marca timestamp, persiste local y sincroniza.
+function saveFacu() {
+  _FACU.updatedAt = Date.now();
+  saveFacuLocal();
+  facuSyncPush();
+}
+
+/* ── Sincronización con la planilla (vía Apps Script) ──
+   Solo actúa si hay URL configurada; si no, todo queda local. */
+let _facuPushTimer = null;
+function facuSyncPush() {
+  const url = getPersonalUrl();
+  if (!url) return;
+  clearTimeout(_facuPushTimer);
+  _facuPushTimer = setTimeout(() => {
+    try {
+      // no-cors + text/plain evita el preflight CORS (Apps Script no lo maneja).
+      // Es "fire and forget": no podemos leer la respuesta, pero el POST llega.
+      fetch(url, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'save_facultad', data: _FACU })
+      }).catch(() => {});
+    } catch(e) {}
+  }, 700);
+}
+function facuSyncPull() {
+  const url = getPersonalUrl();
+  if (!url) return;
+  submitPersonalJSONP('get_facultad', {}, (res) => {
+    if (!res || !res.ok || !res.facultad) return;
+    let remote;
+    try { remote = JSON.parse(res.facultad); } catch(e) { return; }
+    if (!remote || typeof remote !== 'object') return;
+    loadFacu();
+    const localT = _FACU.updatedAt || 0;
+    const remoteT = remote.updatedAt || 0;
+    if (remoteT > localT) {
+      // La nube tiene una versión más nueva (cambio desde otro dispositivo): la adoptamos.
+      remote.parciales = Array.isArray(remote.parciales) ? remote.parciales : [];
+      remote.clases    = Array.isArray(remote.clases)    ? remote.clases    : [];
+      remote.materias  = Array.isArray(remote.materias)  ? remote.materias  : [];
+      _FACU = remote;
+      saveFacuLocal();
+      renderFacultad();
+    } else if (localT > remoteT) {
+      // Lo local es más nuevo (o la nube está vacía): empujamos.
+      facuSyncPush();
+    }
+  });
 }
 function facuId() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
@@ -2904,7 +2957,7 @@ function renderFacultad() {
       ${facuPlanMapHtml()}
     </div>` : ''}
 
-    <div class="footer-meta">Estos datos se guardan solo en este dispositivo</div>
+    <div class="footer-meta">${getPersonalUrl() ? '☁️ Sincronizado con tu planilla' : 'Estos datos se guardan solo en este dispositivo'}</div>
   `;
   container.classList.add('content-fade-in');
   setTimeout(() => container.classList.remove('content-fade-in'), 500);
@@ -3654,7 +3707,7 @@ function switchTab(tab) {
   if (tab === 'salud' && typeof loadSaludData === 'function') loadSaludData();
   if (tab === 'gym' && typeof loadGymData === 'function') loadGymData();
   if (tab === 'comidas' && typeof loadComidasData === 'function') loadComidasData();
-  if (tab === 'facultad' && typeof renderFacultad === 'function') renderFacultad();
+  if (tab === 'facultad' && typeof renderFacultad === 'function') { renderFacultad(); facuSyncPull(); }
   // FAB visible en todas las solapas con acción contextual
   if (fab) fab.style.display = 'flex';
   // Scroll arriba al cambiar de solapa
