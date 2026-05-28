@@ -246,6 +246,42 @@ html[data-theme="dark"] .facu-clase:hover { background: #232328; }
 html[data-theme="dark"] .facu-clase + .facu-clase { border-top-color: rgba(255,255,255,0.06); }
 html[data-theme="dark"] .facu-check { background: #2A2A30; border-color: rgba(255,255,255,0.15); }
 html[data-theme="dark"] .facu-clase-title { color: #E8E5DE; }
+/* Materias / avance de carrera */
+.facu-progress { margin-bottom: 16px; }
+.facu-progress-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.facu-progress-pct { font-size: 22px; font-weight: 700; color: #1F1F1E; letter-spacing: -0.02em; }
+.facu-progress-pct span { font-size: 12px; font-weight: 500; color: #ABA9A0; margin-left: 6px; }
+.facu-progress-count { font-size: 12px; color: #79786F; }
+.facu-progress-bar { display: flex; width: 100%; height: 10px; border-radius: 6px; overflow: hidden; background: #F2F1ED; }
+.facu-progress-seg { height: 100%; transition: width 0.6s cubic-bezier(0.22,1,0.36,1); }
+.facu-progress-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; }
+.facu-progress-legend .leg { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #79786F; }
+.facu-progress-legend .leg .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.facu-materia {
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 10px; transition: background 0.15s ease;
+}
+.facu-materia:hover { background: #FAFAF7; }
+.facu-materia + .facu-materia { border-top: 1px solid #F2F1ED; }
+.facu-materia-name { flex: 1; min-width: 0; font-size: 14px; color: #1F1F1E; line-height: 1.3; }
+.facu-estado {
+  font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 20px;
+  border: none; cursor: pointer; font-family: inherit; white-space: nowrap;
+  transition: filter 0.15s ease, transform 0.12s ease;
+}
+.facu-estado:hover { filter: brightness(0.96); }
+.facu-estado:active { transform: scale(0.95); }
+.facu-estado.pendiente { background: #F2F1ED; color: #79786F; }
+.facu-estado.cursando  { background: rgba(74,144,217,0.14); color: #2F6FB0; }
+.facu-estado.regular   { background: rgba(193,142,72,0.16); color: #9A6E2E; }
+.facu-estado.aprobada  { background: rgba(29,158,117,0.14); color: #1D9E75; }
+.facu-empty-mini { font-size: 11px; color: #C9C7BF; margin-top: 6px; }
+html[data-theme="dark"] .facu-progress-pct { color: #E8E5DE; }
+html[data-theme="dark"] .facu-progress-bar { background: rgba(255,255,255,0.08); }
+html[data-theme="dark"] .facu-materia:hover { background: #232328; }
+html[data-theme="dark"] .facu-materia + .facu-materia { border-top-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .facu-materia-name { color: #E8E5DE; }
+html[data-theme="dark"] .facu-estado.pendiente { background: rgba(255,255,255,0.08); color: #8E8C84; }
 
 /* Dark mode comidas */
 html[data-theme="dark"] .comida-day { border-bottom-color: rgba(255,255,255,0.06); }
@@ -1268,6 +1304,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     <div class="modal-tabs" id="facu-modal-tabs">
       <button type="button" class="modal-tab active" data-facu-tab="parcial">📝 Parcial</button>
       <button type="button" class="modal-tab" data-facu-tab="clase">🎬 Clase</button>
+      <button type="button" class="modal-tab" data-facu-tab="materia">📚 Materia</button>
     </div>
     <form class="form-section active" id="form-facu-parcial">
       <input type="text" id="facu-p-materia" placeholder="Materia / parcial (ej: Análisis II)" required>
@@ -1284,6 +1321,19 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
       <div class="form-buttons">
         <button type="button" class="btn-cancel" data-modal-close="facu-modal">Cancelar</button>
         <button type="submit" class="btn-save">Agregar clase</button>
+      </div>
+    </form>
+    <form class="form-section" id="form-facu-materia">
+      <input type="text" id="facu-m-nombre" placeholder="Materia (ej: Análisis Matemático II)" required>
+      <select id="facu-m-estado">
+        <option value="pendiente">Pendiente</option>
+        <option value="cursando">Cursando</option>
+        <option value="regular">Regular (debe final)</option>
+        <option value="aprobada">Aprobada</option>
+      </select>
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-modal-close="facu-modal">Cancelar</button>
+        <button type="submit" class="btn-save">Agregar materia</button>
       </div>
     </form>
     <div class="modal-status" id="facu-status"></div>
@@ -2425,6 +2475,7 @@ function loadFacu() {
   if (!_FACU || typeof _FACU !== 'object') _FACU = {};
   if (!Array.isArray(_FACU.parciales)) _FACU.parciales = [];
   if (!Array.isArray(_FACU.clases)) _FACU.clases = [];
+  if (!Array.isArray(_FACU.materias)) _FACU.materias = [];
   return _FACU;
 }
 function saveFacu() {
@@ -2491,6 +2542,34 @@ function facuDeleteClase(id) {
   saveFacu(); renderFacultad();
 }
 
+const FACU_ESTADOS = {
+  pendiente: { label: 'Pendiente', color: '#ABA9A0' },
+  cursando:  { label: 'Cursando',  color: '#4A90D9' },
+  regular:   { label: 'Regular',   color: '#C18E48' },
+  aprobada:  { label: 'Aprobada',  color: '#1D9E75' }
+};
+const FACU_ESTADO_ORDEN = ['pendiente', 'cursando', 'regular', 'aprobada'];
+
+function facuAddMateria(nombre, estado) {
+  loadFacu();
+  const est = FACU_ESTADOS[estado] ? estado : 'pendiente';
+  _FACU.materias.push({ id: facuId(), nombre: nombre.trim(), estado: est });
+  saveFacu(); renderFacultad();
+}
+function facuCycleMateria(id) {
+  loadFacu();
+  const m = _FACU.materias.find(x => x.id === id);
+  if (!m) return;
+  const i = FACU_ESTADO_ORDEN.indexOf(m.estado);
+  m.estado = FACU_ESTADO_ORDEN[(i + 1) % FACU_ESTADO_ORDEN.length];
+  saveFacu(); renderFacultad();
+}
+function facuDeleteMateria(id) {
+  loadFacu();
+  _FACU.materias = _FACU.materias.filter(x => x.id !== id);
+  saveFacu(); renderFacultad();
+}
+
 function renderFacultad() {
   const container = document.getElementById('facultad-content');
   if (!container) return;
@@ -2507,6 +2586,18 @@ function renderFacultad() {
     .filter(d => d !== null && d >= 0)
     .sort((a, b) => a - b)[0];
   const clasesPend = _FACU.clases.filter(c => !c.done).length;
+
+  // Materias / avance de carrera
+  const materias = _FACU.materias;
+  const countEstado = est => materias.filter(m => m.estado === est).length;
+  const nAprob = countEstado('aprobada');
+  const nReg = countEstado('regular');
+  const nCurs = countEstado('cursando');
+  const nPend = countEstado('pendiente');
+  const totalMat = materias.length;
+  const pctCarrera = totalMat ? Math.round(nAprob / totalMat * 100) : 0;
+  const segPct = n => totalMat ? (n / totalMat * 100) : 0;
+  const E = FACU_ESTADOS;
 
   const proxStr = proximo === undefined ? '—'
     : (proximo === 0 ? 'Hoy' : (proximo === 1 ? 'Mañana' : proximo + ' días'));
@@ -2583,6 +2674,41 @@ function renderFacultad() {
         : _FACU.clases.map(claseHtml).join('')}
     </div>
 
+    <div class="card" style="margin-top:16px;">
+      <div class="card-header">
+        <div class="card-title">📚 Materias</div>
+        <button class="refresh-btn" onclick="openFacuModal('materia')">+ Agregar</button>
+      </div>
+      ${totalMat === 0
+        ? '<div class="facu-empty">Cargá tus materias para ver el avance de la carrera.</div>'
+        : `<div class="facu-progress">
+            <div class="facu-progress-top">
+              <div class="facu-progress-pct">${pctCarrera}%<span>de la carrera</span></div>
+              <div class="facu-progress-count">${nAprob} de ${totalMat} aprobadas</div>
+            </div>
+            <div class="facu-progress-bar">
+              <span class="facu-progress-seg" style="width:${segPct(nAprob)}%;background:${E.aprobada.color};"></span>
+              <span class="facu-progress-seg" style="width:${segPct(nReg)}%;background:${E.regular.color};"></span>
+              <span class="facu-progress-seg" style="width:${segPct(nCurs)}%;background:${E.cursando.color};"></span>
+            </div>
+            <div class="facu-progress-legend">
+              ${nAprob ? `<span class="leg"><span class="dot" style="background:${E.aprobada.color};"></span>Aprobadas: <strong>${nAprob}</strong></span>` : ''}
+              ${nReg ? `<span class="leg"><span class="dot" style="background:${E.regular.color};"></span>Regular: <strong>${nReg}</strong></span>` : ''}
+              ${nCurs ? `<span class="leg"><span class="dot" style="background:${E.cursando.color};"></span>Cursando: <strong>${nCurs}</strong></span>` : ''}
+              ${nPend ? `<span class="leg"><span class="dot" style="background:${E.pendiente.color};"></span>Pendientes: <strong>${nPend}</strong></span>` : ''}
+            </div>
+          </div>
+          ${materias.map(m => {
+            const e = E[m.estado] || E.pendiente;
+            return `<div class="facu-materia">
+              <div class="facu-materia-name">${esc(m.nombre)}</div>
+              <button class="facu-estado ${m.estado}" title="Tocá para cambiar de estado" onclick="facuCycleMateria('${m.id}')">${e.label}</button>
+              <button class="facu-icon-btn danger" title="Eliminar" onclick="facuDeleteMateria('${m.id}')">🗑</button>
+            </div>`;
+          }).join('')}
+          <div class="facu-empty-mini">Tocá el estado de una materia para avanzarlo: Pendiente → Cursando → Regular → Aprobada.</div>`}
+    </div>
+
     <div class="footer-meta">Estos datos se guardan solo en este dispositivo</div>
   `;
   container.classList.add('content-fade-in');
@@ -2595,9 +2721,11 @@ function openFacuModal(which) {
   if (!overlay) return;
   facuModalSwitch(which || 'parcial');
   // Limpiar inputs
-  ['facu-p-materia','facu-p-nota','facu-c-titulo','facu-c-materia'].forEach(id => {
+  ['facu-p-materia','facu-p-nota','facu-c-titulo','facu-c-materia','facu-m-nombre'].forEach(id => {
     const el = document.getElementById(id); if (el) el.value = '';
   });
+  const estSel = document.getElementById('facu-m-estado');
+  if (estSel) estSel.value = 'pendiente';
   const fecha = document.getElementById('facu-p-fecha');
   if (fecha) fecha.value = todayLocalStr();
   const st = document.getElementById('facu-status');
@@ -2610,6 +2738,7 @@ function facuModalSwitch(which) {
   });
   document.getElementById('form-facu-parcial')?.classList.toggle('active', which === 'parcial');
   document.getElementById('form-facu-clase')?.classList.toggle('active', which === 'clase');
+  document.getElementById('form-facu-materia')?.classList.toggle('active', which === 'materia');
 }
 
 /* ════════════════════════════════════════════════════════
@@ -2736,6 +2865,15 @@ document.addEventListener('DOMContentLoaded', () => {
     const materia = document.getElementById('facu-c-materia').value;
     if (!titulo) { setStatus('facu-status', 'Escribí el nombre de la clase', 'error'); return; }
     facuAddClase(titulo, materia);
+    closePersonalModal('facu-modal');
+  });
+  const formFacuM = document.getElementById('form-facu-materia');
+  if (formFacuM) formFacuM.addEventListener('submit', e => {
+    e.preventDefault();
+    const nombre = document.getElementById('facu-m-nombre').value.trim();
+    const estado = document.getElementById('facu-m-estado').value;
+    if (!nombre) { setStatus('facu-status', 'Escribí el nombre de la materia', 'error'); return; }
+    facuAddMateria(nombre, estado);
     closePersonalModal('facu-modal');
   });
 
