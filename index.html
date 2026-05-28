@@ -264,6 +264,8 @@ html[data-theme="dark"] .facu-clase-title { color: #E8E5DE; }
 .facu-materia:hover { background: #FAFAF7; }
 .facu-materia + .facu-materia { border-top: 1px solid #F2F1ED; }
 .facu-materia-name { flex: 1; min-width: 0; font-size: 14px; color: #1F1F1E; line-height: 1.3; }
+.facu-mat-cod { font-size: 11px; color: #C9C7BF; font-weight: 500; margin-left: 4px; }
+html[data-theme="dark"] .facu-mat-cod { color: #6B6A64; }
 .facu-estado {
   font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 20px;
   border: none; cursor: pointer; font-family: inherit; white-space: nowrap;
@@ -2476,7 +2478,54 @@ function loadFacu() {
   if (!Array.isArray(_FACU.parciales)) _FACU.parciales = [];
   if (!Array.isArray(_FACU.clases)) _FACU.clases = [];
   if (!Array.isArray(_FACU.materias)) _FACU.materias = [];
+  // Precarga única de las materias de la carrera (solo si nunca se cargaron)
+  if (!_FACU.seededMaterias && _FACU.materias.length === 0) {
+    _FACU.materias = facuDefaultMaterias();
+    _FACU.seededMaterias = true;
+    saveFacu();
+  }
   return _FACU;
+}
+
+// Materias de la carrera precargadas a partir del listado del usuario.
+// estado: 'aprobada' | 'cursando' | 'pendiente'
+function facuDefaultMaterias() {
+  const lista = [
+    ['Análisis Matemático I', '241', 'aprobada'],
+    ['Economía', '242', 'aprobada'],
+    ['Sociología', '243', 'aprobada'],
+    ['Metodología de las Cs. Sociales', '244', 'aprobada'],
+    ['Álgebra', '245', 'aprobada'],
+    ['Historia Económica y Social Gral', '246', 'aprobada'],
+    ['Teoría Contable', '247', 'aprobada'],
+    ['Estadística', '248', 'aprobada'],
+    ['Historia Ec. y Social Argentina', '249', 'aprobada'],
+    ['Microeconomía I', '250', 'aprobada'],
+    ['Instituciones de Dho. Público', '251', 'aprobada'],
+    ['Administración General', '252', 'aprobada'],
+    ['Instituciones de Dcho. Privado', '273', 'aprobada'],
+    ['Sistemas Administrativos', '274', 'aprobada'],
+    ['Tecnología de la Información', '275', 'aprobada'],
+    ['Macroeconomía y Polít. Económica', '278', 'aprobada'],
+    ['Sistemas Contables', '351', 'aprobada'],
+    ['Sistemas de Costos', '353', 'aprobada'],
+    ['Derecho del Trab. y L/Seg.Social', '354', 'aprobada'],
+    ['Auditoría', '355', 'aprobada'],
+    ['Teoría y Técnica Impositiva I', '356', 'aprobada'],
+    ['Gestión y Costos (para Contadores)', '362', 'aprobada'],
+    ['Contabilidad Financiera', '1352', 'aprobada'],
+    ['Taller de Actuación Profesional Judicial', '1358', 'aprobada'],
+    ['Derecho Económico', '1359', 'aprobada'],
+    ['Derecho Crediticio, Bursátil e Insolv.', '1360', 'aprobada'],
+    ['Contab. Gubernamental y Control Gest.', '1374', 'aprobada'],
+    ['Administración Pública', '794', 'aprobada'],
+    ['Cálculo Financiero', '276', 'cursando'],
+    ['Teoría y Técnica Impositiva II', '357', 'cursando'],
+    ['Administración Financiera', '279', 'pendiente'],
+    ['Contabilidad Social y Ambiental', '1330', 'pendiente'],
+    ['Taller de Práctica Profesional en Org.', '1361', 'pendiente']
+  ];
+  return lista.map(([nombre, codigo, estado]) => ({ id: facuId(), nombre, codigo, estado }));
 }
 function saveFacu() {
   try { localStorage.setItem(FACU_KEY, JSON.stringify(_FACU)); } catch(e){}
@@ -2701,7 +2750,7 @@ function renderFacultad() {
           ${materias.map(m => {
             const e = E[m.estado] || E.pendiente;
             return `<div class="facu-materia">
-              <div class="facu-materia-name">${esc(m.nombre)}</div>
+              <div class="facu-materia-name">${esc(m.nombre)}${m.codigo ? ' <span class="facu-mat-cod">' + esc(m.codigo) + '</span>' : ''}</div>
               <button class="facu-estado ${m.estado}" title="Tocá para cambiar de estado" onclick="facuCycleMateria('${m.id}')">${e.label}</button>
               <button class="facu-icon-btn danger" title="Eliminar" onclick="facuDeleteMateria('${m.id}')">🗑</button>
             </div>`;
