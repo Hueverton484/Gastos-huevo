@@ -167,6 +167,13 @@ html[data-theme="dark"] .setup-banner .text { color: #FCA5A5; }
 .comida-meal-cat.unhealthy { color: #A32D2D; }
 .comida-meal-cat.salteado  { color: #ABA9A0; }
 .comida-month-picker { background: #FFFFFF; border: 1px solid #ECECE8; border-radius: 8px; padding: 6px 10px; font-size: 13px; color: #1F1F1E; cursor: pointer; font-family: inherit; outline: none; }
+.comida-breakdown { margin-top: 16px; }
+.comida-bar { display: flex; width: 100%; height: 10px; border-radius: 6px; overflow: hidden; background: #ECECE8; }
+.comida-bar-seg { height: 100%; transition: width 0.6s cubic-bezier(0.22,1,0.36,1); }
+.comida-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 10px; }
+.comida-legend-item { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: #79786F; }
+.comida-legend-item strong { color: #1F1F1E; font-weight: 600; }
+.comida-legend-item .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
 
 /* Dark mode comidas */
 html[data-theme="dark"] .comida-day { border-bottom-color: rgba(255,255,255,0.06); }
@@ -2075,8 +2082,9 @@ function parseComidas(data) {
 
 function comidaCatClass(cat) {
   const c = (cat || '').toLowerCase();
-  if (/saludable/.test(c)) return 'healthy';
+  // "no saludable" contiene "saludable", así que debe chequearse PRIMERO
   if (/no\s*saludable|unhealthy/.test(c)) return 'unhealthy';
+  if (/saludable|healthy/.test(c)) return 'healthy';
   if (/normal/.test(c)) return 'normal';
   if (/saltead|skip|sin\s*comer/.test(c)) return 'salteado';
   return 'empty';
@@ -2170,7 +2178,12 @@ function renderComidas() {
   const nHealthy = cats.filter(c => c === 'healthy').length;
   const nNormal  = cats.filter(c => c === 'normal').length;
   const nUnhealthy = cats.filter(c => c === 'unhealthy').length;
-  const pctHealthy = meals.length ? Math.round(nHealthy / meals.length * 100) : 0;
+  // Sólo contamos las comidas con categoría asignada (saludable/normal/no saludable)
+  const nCategorizadas = nHealthy + nNormal + nUnhealthy;
+  const pct = n => nCategorizadas ? Math.round(n / nCategorizadas * 100) : 0;
+  const pctHealthy = pct(nHealthy);
+  const pctNormal = pct(nNormal);
+  const pctUnhealthy = pct(nUnhealthy);
   const diasConTodas = dayList.filter(d => d.meals.every(m => m.comida)).length;
 
   const dayHtml = (d) => {
@@ -2215,24 +2228,33 @@ function renderComidas() {
       <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
         <div class="kpi">
           <div class="kpi-label">% Saludable</div>
-          <div class="kpi-value">${pctHealthy}%</div>
-          <div class="kpi-hint">${nHealthy} de ${meals.length}</div>
+          <div class="kpi-value" style="color:#1D9E75;">${pctHealthy}%</div>
+          <div class="kpi-hint">${nHealthy} de ${nCategorizadas}</div>
         </div>
         <div class="kpi">
-          <div class="kpi-label">Días completos</div>
-          <div class="kpi-value">${diasConTodas}</div>
-          <div class="kpi-hint">con las 3 comidas registradas</div>
+          <div class="kpi-label">% Normal</div>
+          <div class="kpi-value" style="color:#C18E48;">${pctNormal}%</div>
+          <div class="kpi-hint">${nNormal} de ${nCategorizadas}</div>
         </div>
         <div class="kpi">
-          <div class="kpi-label">Distribución</div>
-          <div class="kpi-value" style="font-size:14px;line-height:1.4;">
-            <span style="color:#6EE7B7;">🟢 ${nHealthy}</span> ·
-            <span style="color:#FCD34D;">🟡 ${nNormal}</span> ·
-            <span style="color:#FCA5A5;">🔴 ${nUnhealthy}</span>
-          </div>
-          <div class="kpi-hint">saludable · normal · no</div>
+          <div class="kpi-label">% No saludable</div>
+          <div class="kpi-value" style="color:#A32D2D;">${pctUnhealthy}%</div>
+          <div class="kpi-hint">${nUnhealthy} de ${nCategorizadas}</div>
         </div>
       </div>
+      ${nCategorizadas > 0 ? `<div class="comida-breakdown">
+        <div class="comida-bar">
+          <span class="comida-bar-seg" style="width:${pctHealthy}%;background:#1D9E75;"></span>
+          <span class="comida-bar-seg" style="width:${pctNormal}%;background:#C18E48;"></span>
+          <span class="comida-bar-seg" style="width:${pctUnhealthy}%;background:#A32D2D;"></span>
+        </div>
+        <div class="comida-legend">
+          <span class="comida-legend-item"><span class="dot" style="background:#1D9E75;"></span>Saludable: <strong>${pctHealthy}%</strong></span>
+          <span class="comida-legend-item"><span class="dot" style="background:#C18E48;"></span>Normal: <strong>${pctNormal}%</strong></span>
+          <span class="comida-legend-item"><span class="dot" style="background:#A32D2D;"></span>No saludable: <strong>${pctUnhealthy}%</strong></span>
+        </div>
+      </div>` : ''}
+      <div class="day-info" style="text-align:right;margin-top:10px;">${diasConTodas} días completos · ${nCategorizadas} comidas categorizadas</div>
     </div>
 
     <div class="card" style="margin-top:16px;">
