@@ -3574,61 +3574,6 @@ load();
     });
   }
 
-  /* ── 2. HOVER 3D TILT en cards (desktop only) ─────────────────────
-     El card se inclina siguiendo al cursor con perspectiva.
-     Desactivamos la transición CSS sobre transform para no pelear. */
-  function wireTilt(scope) {
-    if (isMobile || reducedMotion) return;
-    scope = scope || document;
-    const cards = scope.querySelectorAll('.card:not([data-tilt])');
-    cards.forEach(card => {
-      card.setAttribute('data-tilt', '1');
-      // Tarjetas grandes (listas de comidas, sesiones, historial): no aplicar tilt
-      // porque son muy altas y el efecto 3D se ve mal y puede conflictuarse con la entrada spring.
-      if (card.offsetHeight > 320) return;
-
-      card.style.transformStyle = 'preserve-3d';
-      card.style.willChange = 'transform';
-      // Sobrescribir transition existente para que el rAF no se sienta laggy
-      card.style.transition = 'box-shadow 0.22s cubic-bezier(0.4,0,0.2,1)';
-
-      let rafId = null;
-      let isHovering = false;
-      let ready = false;
-      const MAX_TILT = 5; // grados máximos (reducidos de 7)
-      // Esperar que la animación de entrada termine antes de habilitar el tilt
-      setTimeout(() => { ready = true; }, 700);
-
-      function onEnter() { if (ready) isHovering = true; }
-      function onMove(e) {
-        if (!isHovering || !ready) return;
-        const rect = card.getBoundingClientRect();
-        const cx = rect.left + rect.width / 2;
-        const cy = rect.top + rect.height / 2;
-        const dx = (e.clientX - cx) / (rect.width / 2);
-        const dy = (e.clientY - cy) / (rect.height / 2);
-        const rotY = dx * MAX_TILT;
-        const rotX = -dy * MAX_TILT;
-        if (rafId) cancelAnimationFrame(rafId);
-        rafId = requestAnimationFrame(() => {
-          card.style.transform =
-            `perspective(900px) rotateX(${rotX}deg) rotateY(${rotY}deg) translateZ(6px)`;
-        });
-      }
-      function onLeave() {
-        isHovering = false;
-        if (rafId) cancelAnimationFrame(rafId);
-        animate(card,
-          { transform: 'perspective(900px) rotateX(0deg) rotateY(0deg) translateZ(0px)' },
-          { type: 'spring', stiffness: 220, damping: 20 }
-        );
-      }
-      card.addEventListener('mouseenter', onEnter);
-      card.addEventListener('mousemove', onMove);
-      card.addEventListener('mouseleave', onLeave);
-    });
-  }
-
   /* ── 3. FAB magnético + escala con spring al hover ────────────────
      El botón + es atraído sutilmente hacia el cursor cuando se acerca. */
   function wireMagneticFAB() {
@@ -3740,11 +3685,10 @@ load();
           }
         );
         cards.forEach(c => c.setAttribute('data-motion', '1'));
-        // Re-cablear progress bars / KPIs / tilt
+        // Re-cablear progress bars / KPIs
         setTimeout(() => {
           wireProgressBars(active);
           wireSpringKPIs(active);
-          wireTilt(active);
         }, 50);
       }, 30);
     };
@@ -3753,7 +3697,6 @@ load();
   /* ── Wiring inicial + auto-detección de cards nuevos ───────────── */
   function wireAll() {
     wireMotionCards();
-    wireTilt();
     wireMagneticFAB();
     wireProgressBars();
     wireSpringKPIs();
