@@ -570,6 +570,76 @@ html[data-theme="dark"] .rutina-delta.down { color: #FCA5A5; background: rgba(21
   .sk-grid-21, .sk-grid-11 { grid-template-columns: 1fr; }
 }
 
+/* ── Loading bar: barra arco-iris fina, fixed top, visible mientras fetchea ── */
+#personal-loading-bar {
+  position: fixed; top: 0; left: 0; height: 3px; z-index: 300;
+  background: linear-gradient(90deg, #E8906A 0%, #9A8AE8 50%, #78C49E 80%, #E8906A 100%);
+  background-size: 300% 100%;
+  border-radius: 0 3px 3px 0; box-shadow: 0 0 10px rgba(154,138,232,0.55);
+  width: 0%; opacity: 0; pointer-events: none;
+  transition: opacity 0.3s ease;
+}
+#personal-loading-bar.pbar-run {
+  opacity: 1;
+  animation: pbarGrow 14s cubic-bezier(0.05,0.5,0.05,1) forwards,
+             pbarShift 2.4s linear infinite;
+}
+#personal-loading-bar.pbar-done {
+  animation: none !important;
+  width: 100% !important; opacity: 0;
+  transition: width 0.12s ease, opacity 0.55s ease 0.1s;
+}
+@keyframes pbarGrow {
+  0%  { width: 0%; }
+  8%  { width: 28%; }
+  22% { width: 52%; }
+  50% { width: 71%; }
+  80% { width: 85%; }
+  100%{ width: 91%; }
+}
+@keyframes pbarShift {
+  0%  { background-position: 0% 50%; }
+  100%{ background-position: 300% 50%; }
+}
+
+/* ── Contenido: fade-in suave al reemplazar el skeleton ── */
+.content-fade-in { animation: contentReveal 0.45s cubic-bezier(0.22,1,0.36,1) both; }
+@keyframes contentReveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Error de carga ── */
+.personal-error-state {
+  background: rgba(255,255,255,0.85);
+  -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px);
+  border: 1px solid rgba(0,0,0,0.07); border-radius: 20px;
+  padding: 56px 28px 44px; text-align: center;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.07);
+  animation: contentReveal 0.4s cubic-bezier(0.22,1,0.36,1) both;
+}
+.personal-error-state .err-emoji { font-size: 46px; margin-bottom: 14px; }
+.personal-error-state .err-title { font-size: 17px; font-weight: 700; color: #1F1F1E; margin-bottom: 8px; }
+.personal-error-state .err-sub { font-size: 13px; color: #79786F; margin-bottom: 26px; line-height: 1.55; }
+.personal-error-state .err-retry {
+  background: #1F1F1E; color: #fff; border: none; border-radius: 12px;
+  padding: 12px 30px; font-size: 14px; font-weight: 600; cursor: pointer;
+  font-family: inherit; letter-spacing: 0.01em;
+  transition: background 0.2s, transform 0.14s;
+}
+.personal-error-state .err-retry:hover { background: #333; }
+.personal-error-state .err-retry:active { transform: scale(0.97); }
+html[data-theme="dark"] .personal-error-state {
+  background: rgba(22,22,26,0.88); border-color: rgba(255,255,255,0.07);
+}
+html[data-theme="dark"] .personal-error-state .err-title { color: #F5F3ED; }
+html[data-theme="dark"] .personal-error-state .err-sub { color: #9E9C93; }
+html[data-theme="dark"] .personal-error-state .err-retry { background: rgba(255,255,255,0.12); color: #F5F3ED; }
+html[data-theme="dark"] .personal-error-state .err-retry:hover { background: rgba(255,255,255,0.2); }
+
+/* ── Botón Recargar en estado "actualizando" ── */
+.refresh-btn[data-refreshing] { opacity: 0.5; pointer-events: none; cursor: not-allowed; }
+
 /* Respeta a quienes prefieren menos movimiento */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
@@ -836,6 +906,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
 </style>
 </head>
 <body>
+<div id="personal-loading-bar" aria-hidden="true"></div>
 <!-- Fondo animado tipo aurora (puro CSS, sin imágenes) -->
 <div class="bg-orbs" aria-hidden="true">
   <div class="orb orb-1"></div>
@@ -1352,6 +1423,38 @@ const PERSONAL_CACHE_KEY = 'misgastos_personal_v1';
 let _PERSONAL = null;
 let _PERSONAL_LOADED = { salud: false, gym: false, comidas: false };
 
+/* ─── Loading-bar helpers ─── */
+let _pbarCount = 0;
+function _pbarStart() {
+  _pbarCount++;
+  const b = document.getElementById('personal-loading-bar');
+  if (!b) return;
+  b.className = '';
+  void b.offsetWidth; // reset animation
+  b.className = 'pbar-run';
+}
+function _pbarDone() {
+  _pbarCount = Math.max(0, _pbarCount - 1);
+  if (_pbarCount > 0) return;
+  const b = document.getElementById('personal-loading-bar');
+  if (!b) return;
+  b.className = 'pbar-done';
+  setTimeout(() => { if (b.className === 'pbar-done') b.className = ''; }, 700);
+}
+
+/* ─── Mostrar error de carga con botón Reintentar ─── */
+function _showPersonalError(containerId, retryCall) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = `
+    <div class="personal-error-state">
+      <div class="err-emoji">📡</div>
+      <div class="err-title">Sin conexión con los datos</div>
+      <div class="err-sub">No se pudo cargar la información desde Google Sheets.<br>Verificá tu conexión e intentá de nuevo.</div>
+      <button class="err-retry" onclick="${retryCall}">Reintentar</button>
+    </div>`;
+}
+
 function fetchSheetJSONP(sheetName, opts) {
   opts = opts || {};
   return new Promise((resolve) => {
@@ -1468,18 +1571,38 @@ async function loadSaludData(force) {
   if (_PERSONAL_LOADED.salud && !force) return;
   // Render desde caché si existe
   if (!_PERSONAL) renderSaludFromCache();
-  const [peso, medidas] = await Promise.all([
-    // Peso: la col A está vacía, los datos están en B-E. headers=0 evita que gviz
-    // confunda filas de título/sub-encabezado como labels.
-    fetchSheetJSONP('Peso', { range: 'B:E', headers: 0 }),
-    fetchSheetJSONP('Medidas')
-  ]);
-  if (!_PERSONAL) _PERSONAL = {};
-  _PERSONAL.peso = parsePeso(peso);
-  _PERSONAL.medidas = parseMedidas(medidas);
-  _PERSONAL_LOADED.salud = true;
-  try { localStorage.setItem(PERSONAL_CACHE_KEY, JSON.stringify(_PERSONAL)); } catch(e){}
-  renderSalud();
+  // Indicar estado de carga
+  _pbarStart();
+  const refreshBtn = document.querySelector('#salud-content .refresh-btn');
+  if (refreshBtn) { refreshBtn.textContent = '↻ Actualizando'; refreshBtn.setAttribute('data-refreshing', '1'); }
+  let fetchOk = false;
+  try {
+    const [peso, medidas] = await Promise.all([
+      // Peso: la col A está vacía, los datos están en B-E. headers=0 evita que gviz
+      // confunda filas de título/sub-encabezado como labels.
+      fetchSheetJSONP('Peso', { range: 'B:E', headers: 0 }),
+      fetchSheetJSONP('Medidas')
+    ]);
+    if (peso || medidas) {
+      if (!_PERSONAL) _PERSONAL = {};
+      _PERSONAL.peso = parsePeso(peso);
+      _PERSONAL.medidas = parseMedidas(medidas);
+      _PERSONAL_LOADED.salud = true;
+      try { localStorage.setItem(PERSONAL_CACHE_KEY, JSON.stringify(_PERSONAL)); } catch(e){}
+      fetchOk = true;
+    }
+  } catch(e) { /* error de red */ }
+  _pbarDone();
+  if (fetchOk) {
+    renderSalud();
+  } else if (!_PERSONAL || !(_PERSONAL.peso && _PERSONAL.peso.length)) {
+    // Sin caché y sin red → mostrar estado de error con botón Reintentar
+    _showPersonalError('salud-content', 'loadSaludData(true)');
+  } else {
+    // Tenía caché pero el refetch falló → dejar lo que hay y resetear botón
+    const btn = document.querySelector('#salud-content .refresh-btn');
+    if (btn) { btn.textContent = 'Recargar'; btn.removeAttribute('data-refreshing'); }
+  }
 }
 
 function renderSaludFromCache() {
@@ -1627,6 +1750,8 @@ function renderSalud() {
     ${setupBannerHtml()}
     <div class="footer-meta">Datos leídos del spreadsheet de salud</div>
   `;
+  container.classList.add('content-fade-in');
+  setTimeout(() => container.classList.remove('content-fade-in'), 500);
 
   if (peso.length > 0) renderPesoChart(peso);
 }
@@ -1726,19 +1851,37 @@ function parseRutina(data) {
 async function loadGymData(force) {
   if (_PERSONAL_LOADED.gym && !force) return;
   if (!_PERSONAL) renderGymFromCache();
-  const [actividad, rutina] = await Promise.all([
-    // Actividad: col A vacía, datos en B-F. Mismo patrón que Peso.
-    fetchSheetJSONP('Actividad', { range: 'B:F', headers: 0 }),
-    // Rutina: la tabla de progreso de pesos tiene headers reales en la fila 18
-    // (las filas 16-17 son título + instrucciones). Datos desde fila 19.
-    fetchSheetJSONP('Rutina', { range: 'B18:N100', headers: 1 })
-  ]);
-  if (!_PERSONAL) _PERSONAL = {};
-  _PERSONAL.actividad = parseActividad(actividad);
-  _PERSONAL.rutina = parseRutina(rutina);
-  _PERSONAL_LOADED.gym = true;
-  try { localStorage.setItem(PERSONAL_CACHE_KEY, JSON.stringify(_PERSONAL)); } catch(e){}
-  renderGym();
+  // Indicar estado de carga
+  _pbarStart();
+  const refreshBtn = document.querySelector('#gym-content .refresh-btn');
+  if (refreshBtn) { refreshBtn.textContent = '↻ Actualizando'; refreshBtn.setAttribute('data-refreshing', '1'); }
+  let fetchOk = false;
+  try {
+    const [actividad, rutina] = await Promise.all([
+      // Actividad: col A vacía, datos en B-F. Mismo patrón que Peso.
+      fetchSheetJSONP('Actividad', { range: 'B:F', headers: 0 }),
+      // Rutina: la tabla de progreso de pesos tiene headers reales en la fila 18
+      // (las filas 16-17 son título + instrucciones). Datos desde fila 19.
+      fetchSheetJSONP('Rutina', { range: 'B18:N100', headers: 1 })
+    ]);
+    if (actividad || rutina) {
+      if (!_PERSONAL) _PERSONAL = {};
+      _PERSONAL.actividad = parseActividad(actividad);
+      _PERSONAL.rutina = parseRutina(rutina);
+      _PERSONAL_LOADED.gym = true;
+      try { localStorage.setItem(PERSONAL_CACHE_KEY, JSON.stringify(_PERSONAL)); } catch(e){}
+      fetchOk = true;
+    }
+  } catch(e) { /* error de red */ }
+  _pbarDone();
+  if (fetchOk) {
+    renderGym();
+  } else if (!_PERSONAL || !(_PERSONAL.actividad && _PERSONAL.actividad.length)) {
+    _showPersonalError('gym-content', 'loadGymData(true)');
+  } else {
+    const btn = document.querySelector('#gym-content .refresh-btn');
+    if (btn) { btn.textContent = 'Recargar'; btn.removeAttribute('data-refreshing'); }
+  }
 }
 
 function renderGymFromCache() {
@@ -1886,6 +2029,8 @@ function renderGym() {
     ${setupBannerHtml()}
     <div class="footer-meta">Datos leídos del spreadsheet de gym</div>
   `;
+  container.classList.add('content-fade-in');
+  setTimeout(() => container.classList.remove('content-fade-in'), 500);
 }
 
 /* ─── Comidas ─── */
@@ -1946,25 +2091,41 @@ async function loadComidasData(force) {
   if (_PERSONAL_LOADED.comidas && !force && !_COMIDAS_MES_VISIBLE) return;
   if (!_PERSONAL) renderComidasFromCache();
   const sheetName = _COMIDAS_MES_VISIBLE || pickComidaSheet();
-  // Layout real: col A vacía, fila 1-2 son títulos, fila 3 es subtítulo ("31 dias - 93 comidas posibles"),
-  // fila 4 son los headers (Dia/Momento/Comida/Categoria/Notas), datos desde fila 5.
-  // Apuntamos a B4:F para que gviz tome la fila correcta como labels.
-  const data = await fetchSheetJSONP(sheetName, { range: 'B4:F200', headers: 1 });
-  let parsed = parseComidas(data);
-  // Si el mes actual no existe (data null) o no devolvió nada, probamos Mayo 2026 (donde está la data real)
-  if ((!data || parsed.length === 0) && sheetName !== 'Mayo 2026') {
-    const fb = await fetchSheetJSONP('Mayo 2026', { range: 'B4:F200', headers: 1 });
-    parsed = parseComidas(fb);
-    if (parsed.length) _COMIDAS_MES_VISIBLE = 'Mayo 2026';
+  // Indicar estado de carga
+  _pbarStart();
+  const refreshBtn = document.querySelector('#comidas-content .refresh-btn');
+  if (refreshBtn) { refreshBtn.textContent = '↻ Actualizando'; refreshBtn.setAttribute('data-refreshing', '1'); }
+  let fetchOk = false;
+  try {
+    // Layout real: col A vacía, fila 1-2 son títulos, fila 3 es subtítulo ("31 dias - 93 comidas posibles"),
+    // fila 4 son los headers (Dia/Momento/Comida/Categoria/Notas), datos desde fila 5.
+    // Apuntamos a B4:F para que gviz tome la fila correcta como labels.
+    const data = await fetchSheetJSONP(sheetName, { range: 'B4:F200', headers: 1 });
+    let parsed = parseComidas(data);
+    // Si el mes actual no existe (data null) o no devolvió nada, probamos Mayo 2026 (donde está la data real)
+    if ((!data || parsed.length === 0) && sheetName !== 'Mayo 2026') {
+      const fb = await fetchSheetJSONP('Mayo 2026', { range: 'B4:F200', headers: 1 });
+      parsed = parseComidas(fb);
+      if (parsed.length) _COMIDAS_MES_VISIBLE = 'Mayo 2026';
+    } else {
+      _COMIDAS_MES_VISIBLE = sheetName;
+    }
+    if (!_PERSONAL) _PERSONAL = {};
+    _PERSONAL.comidas = parsed;
+    _PERSONAL.comidasMes = _COMIDAS_MES_VISIBLE;
+    _PERSONAL_LOADED.comidas = true;
+    try { localStorage.setItem(PERSONAL_CACHE_KEY, JSON.stringify(_PERSONAL)); } catch(e){}
+    fetchOk = true;
+  } catch(e) { /* error de red */ }
+  _pbarDone();
+  if (fetchOk) {
+    renderComidas();
+  } else if (!_PERSONAL || !(_PERSONAL.comidas && _PERSONAL.comidas.length)) {
+    _showPersonalError('comidas-content', 'loadComidasData(true)');
   } else {
-    _COMIDAS_MES_VISIBLE = sheetName;
+    const btn = document.querySelector('#comidas-content .refresh-btn');
+    if (btn) { btn.textContent = 'Recargar'; btn.removeAttribute('data-refreshing'); }
   }
-  if (!_PERSONAL) _PERSONAL = {};
-  _PERSONAL.comidas = parsed;
-  _PERSONAL.comidasMes = _COMIDAS_MES_VISIBLE;
-  _PERSONAL_LOADED.comidas = true;
-  try { localStorage.setItem(PERSONAL_CACHE_KEY, JSON.stringify(_PERSONAL)); } catch(e){}
-  renderComidas();
 }
 
 function renderComidasFromCache() {
@@ -2084,6 +2245,8 @@ function renderComidas() {
     ${setupBannerHtml()}
     <div class="footer-meta">Datos leídos del spreadsheet de comidas</div>
   `;
+  container.classList.add('content-fade-in');
+  setTimeout(() => container.classList.remove('content-fade-in'), 500);
 
   // Hook del selector de mes
   document.getElementById('comida-month-picker')?.addEventListener('change', e => {
