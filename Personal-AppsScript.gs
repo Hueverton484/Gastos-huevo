@@ -109,27 +109,24 @@ function addPeso(p) {
   const nota  = p.nota || '';
   if (isNaN(peso) || peso <= 0) throw 'Peso inválido';
 
+  // Layout posicional (la hoja NO tiene encabezados de texto, solo "Nota").
+  // Col A vacía; B=fecha, C=peso, D=variación, E=nota.
+  const C_FECHA = 2, C_PESO = 3, C_VAR = 4, C_NOTA = 5;
   const data = sheet.getDataRange().getValues();
-  // Detectar columnas por encabezado
-  const headers = data[0].map(h => String(h).toLowerCase());
-  const colFecha = headers.findIndex(h => h.indexOf('fecha') >= 0);
-  const colPeso  = headers.findIndex(h => h.indexOf('peso') >= 0);
-  const colVar   = headers.findIndex(h => h.indexOf('variac') >= 0);
-  const colNota  = headers.findIndex(h => h.indexOf('nota') >= 0);
 
-  // Buscar fila existente por fecha
+  // Buscar fila existente por fecha (col B)
   let rowIdx = -1;
-  for (let i = 1; i < data.length; i++) {
-    const d = data[i][colFecha];
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i][C_FECHA - 1];
     if (d instanceof Date && sameDay(d, fecha)) { rowIdx = i; break; }
   }
 
-  // Encontrar el último peso registrado antes de esta fecha (para variación)
+  // Último peso registrado antes de esta fecha (para la variación)
   let prevPeso = null;
-  for (let i = data.length - 1; i >= 1; i--) {
+  for (let i = data.length - 1; i >= 0; i--) {
     if (i === rowIdx) continue;
-    const d = data[i][colFecha];
-    const v = data[i][colPeso];
+    const d = data[i][C_FECHA - 1];
+    const v = data[i][C_PESO - 1];
     if (d instanceof Date && d.getTime() < fecha.getTime() && typeof v === 'number' && v > 0) {
       prevPeso = v; break;
     }
@@ -137,20 +134,14 @@ function addPeso(p) {
   const variacion = (prevPeso != null) ? Math.round((peso - prevPeso) * 10) / 10 : '';
 
   if (rowIdx >= 0) {
-    // Update existing row
     const writeRow = rowIdx + 1;
-    sheet.getRange(writeRow, colPeso + 1).setValue(peso);
-    if (colVar  >= 0 && variacion !== '') sheet.getRange(writeRow, colVar + 1).setValue(variacion);
-    if (nota && colNota >= 0)             sheet.getRange(writeRow, colNota + 1).setValue(nota);
+    sheet.getRange(writeRow, C_PESO).setValue(peso);
+    if (variacion !== '') sheet.getRange(writeRow, C_VAR).setValue(variacion);
+    if (nota)             sheet.getRange(writeRow, C_NOTA).setValue(nota);
     return { ok: true, action: 'updated', row: writeRow };
   } else {
-    // Append new row
-    const row = new Array(headers.length).fill('');
-    if (colFecha >= 0) row[colFecha] = fecha;
-    if (colPeso  >= 0) row[colPeso]  = peso;
-    if (colVar   >= 0 && variacion !== '') row[colVar] = variacion;
-    if (colNota  >= 0) row[colNota]  = nota;
-    sheet.appendRow(row);
+    // Fila nueva: A vacía + B-E. Empezar en A con '' para alinear.
+    sheet.appendRow(['', fecha, peso, variacion, nota]);
     return { ok: true, action: 'appended', row: sheet.getLastRow() };
   }
 }
@@ -161,17 +152,9 @@ function addMedida(p) {
   if (!sheet) throw 'No existe la hoja "Medidas"';
   const fecha = parseDate(p.fecha);
 
-  const data = sheet.getDataRange().getValues();
-  const headers = data[0].map(h => String(h).toLowerCase());
-  const colFecha   = headers.findIndex(h => h.indexOf('fecha') >= 0);
-  const colCintura = headers.findIndex(h => h.indexOf('cintura') >= 0 && h.indexOf('/') === -1 && h.indexOf('ratio') === -1 && h.indexOf('indice') === -1);
-  const colCadera  = headers.findIndex(h => h.indexOf('cadera') >= 0 && h.indexOf('/') === -1);
-  const colRatio   = headers.findIndex(h => h.indexOf('ratio') >= 0 || h.indexOf('indice') >= 0 || (h.indexOf('cintura') >= 0 && h.indexOf('/') >= 0));
-  const colPecho   = headers.findIndex(h => h.indexOf('pecho') >= 0);
-  const colBrazo   = headers.findIndex(h => h.indexOf('brazo') >= 0);
-  const colMuslo   = headers.findIndex(h => h.indexOf('muslo') >= 0);
-  const colNotas   = headers.findIndex(h => h.indexOf('nota') >= 0);
-
+  // Layout posicional (la hoja NO tiene encabezados de texto, solo "Nota").
+  // Col A vacía; B=fecha, C=cintura, D=cadera, E=ratio, F=pecho, G=brazo, H=muslo, I=notas.
+  const C_FECHA = 2, C_CINT = 3, C_CAD = 4, C_RATIO = 5, C_PECHO = 6, C_BRAZO = 7, C_MUSLO = 8, C_NOTAS = 9;
   const cintura = parseFloat(p.cintura);
   const cadera  = parseFloat(p.cadera);
   const pecho   = parseFloat(p.pecho);
@@ -180,26 +163,27 @@ function addMedida(p) {
   const notas   = p.notas || '';
   const ratio   = (!isNaN(cintura) && !isNaN(cadera) && cadera > 0) ? (cintura / cadera) : '';
 
-  // Buscar fila existente por fecha
+  const data = sheet.getDataRange().getValues();
+  // Buscar fila existente por fecha (col B)
   let rowIdx = -1;
-  for (let i = 1; i < data.length; i++) {
-    const d = data[i][colFecha];
+  for (let i = 0; i < data.length; i++) {
+    const d = data[i][C_FECHA - 1];
     if (d instanceof Date && sameDay(d, fecha)) { rowIdx = i; break; }
   }
 
-  const writeRow = (rowIdx >= 0) ? (rowIdx + 1) : (sheet.getLastRow() + 1);
-  if (rowIdx < 0 && colFecha >= 0) sheet.getRange(writeRow, colFecha + 1).setValue(fecha);
-
-  function set(col, val) { if (col >= 0 && !(typeof val === 'number' && isNaN(val))) sheet.getRange(writeRow, col + 1).setValue(val); }
-  set(colCintura, cintura);
-  set(colCadera,  cadera);
-  set(colRatio,   ratio);
-  set(colPecho,   pecho);
-  set(colBrazo,   brazo);
-  set(colMuslo,   muslo);
-  if (notas) set(colNotas, notas);
-
-  return { ok: true, action: rowIdx >= 0 ? 'updated' : 'appended', row: writeRow };
+  if (rowIdx >= 0) {
+    const writeRow = rowIdx + 1;
+    const set = (col, val) => { if (!(typeof val === 'number' && isNaN(val)) && val !== '') sheet.getRange(writeRow, col).setValue(val); };
+    set(C_CINT, cintura); set(C_CAD, cadera); set(C_RATIO, ratio);
+    set(C_PECHO, pecho); set(C_BRAZO, brazo); set(C_MUSLO, muslo);
+    if (notas) sheet.getRange(writeRow, C_NOTAS).setValue(notas);
+    return { ok: true, action: 'updated', row: writeRow };
+  } else {
+    // Fila nueva: A vacía + B-I. NaN → '' para no romper el orden de columnas.
+    const v = x => (typeof x === 'number' && isNaN(x)) ? '' : x;
+    sheet.appendRow(['', fecha, v(cintura), v(cadera), v(ratio), v(pecho), v(brazo), v(muslo), notas]);
+    return { ok: true, action: 'appended', row: sheet.getLastRow() };
+  }
 }
 
 /* ── ACTIVIDAD (sesión de gym) ──────────────────────── */
