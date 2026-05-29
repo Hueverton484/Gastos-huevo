@@ -223,6 +223,33 @@ function _agregarCiclo(p) {
   } catch (err) { return { ok: false, error: err.message }; }
 }
 
+// ── IMPUTACIÓN DE COMPRAS CON TARJETA AL MES DEL VENCIMIENTO ──
+// A partir de esta fecha, las compras con cuenta "Tarjeta de crédito" se
+// imputan al mes del vencimiento del ciclo (no al mes de la compra).
+// Las compras anteriores quedan como están (modelo viejo, histórico intacto).
+var CORTE_TARJETA = new Date(2026, 4, 29).getTime(); // 29/05/2026
+
+// Devuelve el timestamp del vencimiento del ciclo al que pertenece una compra.
+// ciclos: array {cierre, vencimiento} ORDENADO por cierre asc.
+// Si la compra es posterior al último cierre cargado, extrapola mes a mes
+// (estimación) hasta que cargues la fecha real del próximo ciclo.
+function _vencimientoParaFecha(ciclos, fechaMs) {
+  if (!ciclos || !ciclos.length) return null;
+  for (var i = 0; i < ciclos.length; i++) {
+    if (ciclos[i].cierre >= fechaMs) return ciclos[i].vencimiento;
+  }
+  var last = ciclos[ciclos.length - 1];
+  var cierre = new Date(last.cierre);
+  var venc = new Date(last.vencimiento);
+  var guard = 0;
+  while (cierre.getTime() < fechaMs && guard < 60) {
+    cierre.setMonth(cierre.getMonth() + 1);
+    venc.setMonth(venc.getMonth() + 1);
+    guard++;
+  }
+  return venc.getTime();
+}
+
 // Llama a actualizarResumen() pero sin el alert final (que falla cuando
 // se ejecuta desde un Web App al no haber UI disponible).
 function _regenerarResumenSilencioso() {
@@ -557,7 +584,7 @@ function getDashboardData() {
   // CACHÉ: la clave depende de la cantidad de filas. Cuando agregás un gasto,
   // ingreso, meta, cuota o ciclo, la clave cambia y se recalcula solo.
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'dash_v4_' +
+  const cacheKey = 'dash_v5_' +
     (shGastos   ? shGastos.getLastRow()   : 0) + '_' +
     (shIngresos ? shIngresos.getLastRow() : 0) + '_' +
     (shCuotas   ? shCuotas.getLastRow()   : 0) + '_' +
@@ -579,25 +606,38 @@ function getDashboardData() {
   const cuotas = _leerCuotas(ss);
   const gastosFijos = _leerGastosFijos(ss);
   const metasRaw = _leerMetas(ss);
+  const ciclos = _leerCiclos(ss);
 
   const porMes = {}, ingresosPorMes = {};
 
   for (const fila of datosGastos) {
     const fecha = new Date(fila[1]);
     if (isNaN(fecha.getTime())) continue;
-    const k = fecha.getFullYear() + "-" + String(fecha.getMonth() + 1).padStart(2, '0');
     const cat = fila[2], monto = parseFloat(fila[4]);
     const desc = (fila[3] || "").toString().trim();
     const cuenta = fila[5] || "Sin especificar";
     if (!cat || isNaN(monto)) continue;
+
+    // Mes de imputación: por defecto el de la compra. Si es compra con
+    // tarjeta posterior al corte, se imputa al mes del vencimiento del ciclo.
+    let imputa = fecha;
+    const esTarjeta = (cuenta === "Tarjeta de crédito");
+    let reasignado = false;
+    if (esTarjeta && fecha.getTime() >= CORTE_TARJETA) {
+      const vencMs = _vencimientoParaFecha(ciclos, fecha.getTime());
+      if (vencMs) { imputa = new Date(vencMs); reasignado = true; }
+    }
+    const k = imputa.getFullYear() + "-" + String(imputa.getMonth() + 1).padStart(2, '0');
+
     if (!porMes[k]) porMes[k] = {
-      año: fecha.getFullYear(), mesNum: fecha.getMonth(),
+      año: imputa.getFullYear(), mesNum: imputa.getMonth(),
       gastos: [], cats: {}, cuentas: {}, dias: {}
     };
     const info = porMes[k];
-    info.gastos.push({ fecha: fecha.getTime(), desc, cat, monto, cuenta });
+    info.gastos.push({ fecha: fecha.getTime(), desc, cat, monto, cuenta, esTarjeta, reasignado });
     info.cats[cat] = (info.cats[cat] || 0) + monto;
-    info.dias[fecha.toISOString().slice(0, 10)] = true;
+    // Una compra reasignada al vencimiento no cuenta como "día con gasto" de ese mes futuro.
+    if (!reasignado) info.dias[fecha.toISOString().slice(0, 10)] = true;
     if (cat !== "Ahorro") info.cuentas[cuenta] = (info.cuentas[cuenta] || 0) + monto;
   }
 
@@ -699,7 +739,7 @@ function getDashboardData() {
 
   const result = {
     meses: mesesData, metas: metas, cuotas: cuotasActivas,
-    ciclos: _leerCiclos(ss),
+    ciclos: ciclos,
     presupuesto: PRESUPUESTO_MENSUAL, categorias: CATS,
     actualizado: new Date().getTime()
   };
