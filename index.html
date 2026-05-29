@@ -308,6 +308,19 @@ html[data-theme="dark"] .plan-mat.cursando { background: rgba(74,144,217,0.13); 
 html[data-theme="dark"] .plan-mat-name { color: #E8E5DE; }
 html[data-theme="dark"] .plan-mat-vh { background: rgba(255,255,255,0.08); color: #8E8C84; }
 html[data-theme="dark"] .plan-group-head { color: #8E8C84; border-bottom-color: rgba(255,255,255,0.1); }
+/* Tarjeta de crédito — resumen / proyección */
+.tc-prox-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #79786F; font-weight: 600; }
+.tc-prox-total { font-size: 30px; font-weight: 700; color: #1F1F1E; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin: 2px 0; }
+.tc-prox-venc { font-size: 12.5px; color: #C18E48; margin-bottom: 14px; }
+.tc-breakdown { display: flex; flex-direction: column; gap: 7px; }
+.tc-line { display: flex; justify-content: space-between; font-size: 13px; color: #4A4845; }
+.tc-line span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; color: #1F1F1E; }
+.tc-next { margin-top: 14px; padding-top: 12px; border-top: 1px solid #F2F1ED; }
+.tc-next-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #ABA9A0; font-weight: 600; margin-bottom: 8px; }
+html[data-theme="dark"] .tc-prox-total { color: #E8E5DE; }
+html[data-theme="dark"] .tc-line { color: #BFBDB4; }
+html[data-theme="dark"] .tc-line span:last-child { color: #E8E5DE; }
+html[data-theme="dark"] .tc-next { border-top-color: rgba(255,255,255,0.07); }
 .facu-estado {
   font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 20px;
   border: none; cursor: pointer; font-family: inherit; white-space: nowrap;
@@ -3369,6 +3382,83 @@ function renderTxRows(list) {
     </div>`).join('');
 }
 
+// Calcula los resúmenes de tarjeta proyectados (meses futuros con consumo de tarjeta).
+function buildTarjetaResumen(data) {
+  const hoy = new Date();
+  const curKey = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+  const ciclos = data.ciclos || [];
+  const vencDe = (key) => {
+    for (const c of ciclos) {
+      const v = new Date(c.vencimiento);
+      const vk = v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0');
+      if (vk === key) return v;
+    }
+    return null;
+  };
+  const items = [];
+  (data.meses || []).forEach(m => {
+    if (m.key <= curKey) return; // solo meses futuros (lo que se viene a pagar)
+    let compras = 0, cuotas = 0, fijos = 0;
+    (m.gastos || []).forEach(g => {
+      if (g.cuenta !== 'Tarjeta de crédito') return;
+      if (g.esCuota) cuotas += g.monto;
+      else if (g.esFijo) fijos += g.monto;
+      else compras += g.monto;
+    });
+    const total = compras + cuotas + fijos;
+    if (total > 0) items.push({ key: m.key, año: m.año, mesNum: m.mesNum, compras, cuotas, fijos, total, venc: vencDe(m.key) });
+  });
+  items.sort((a, b) => a.key < b.key ? -1 : 1);
+  return items;
+}
+
+function renderTarjetaCard(data) {
+  const ciclos = data.ciclos || [];
+  const items = buildTarjetaResumen(data);
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const mesLabel = (año, mesNum) => cap(MONTH_NAMES[mesNum]) + ' ' + año;
+  let body;
+  if (!ciclos.length) {
+    body = `<div class="goal-meta" style="padding:18px 0;">Cargá el ciclo de tu tarjeta (botón <strong>+</strong> → <strong>💳 Tarjeta</strong>) para ver la proyección del resumen.</div>`;
+  } else if (!items.length) {
+    body = `<div class="goal-meta" style="padding:18px 0;">Sin compras de tarjeta proyectadas todavía. Cargá un gasto con cuenta <strong>"Tarjeta de crédito"</strong> y vas a ver acá el resumen a pagar.</div>`;
+  } else {
+    const prox = items[0];
+    const fmtVenc = prox.venc
+      ? ('vence ' + prox.venc.getDate() + '/' + (prox.venc.getMonth() + 1))
+      : ('vence en ' + MONTH_NAMES[prox.mesNum] + ' (fecha estimada)');
+    const linea = (lbl, val) => val > 0 ? `<div class="tc-line"><span>${lbl}</span><span>${fmtMoney(val)}</span></div>` : '';
+    body = `
+      <div class="tc-prox-label">Próximo resumen · ${mesLabel(prox.año, prox.mesNum)}</div>
+      <div class="tc-prox-total">${fmtMoney(prox.total)}</div>
+      <div class="tc-prox-venc">${fmtVenc}</div>
+      <div class="tc-breakdown">
+        ${linea('Compras del ciclo', prox.compras)}
+        ${linea('Cuotas', prox.cuotas)}
+        ${linea('Fijos de tarjeta', prox.fijos)}
+      </div>
+      ${items.length > 1 ? `<div class="tc-next">
+        <div class="tc-next-label">Resúmenes siguientes</div>
+        ${items.slice(1, 4).map(it => `<div class="tc-line"><span>${mesLabel(it.año, it.mesNum)}</span><span>${fmtMoney(it.total)}</span></div>`).join('')}
+      </div>` : ''}`;
+  }
+  let meta = '';
+  if (ciclos.length) {
+    const c = ciclos[ciclos.length - 1];
+    const d = new Date(c.cierre);
+    meta = 'último cierre ' + d.getDate() + '/' + (d.getMonth() + 1);
+  }
+  return `<div class="row" style="margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">💳 Tarjeta de crédito</div>
+        <div class="card-meta">${meta}</div>
+      </div>
+      ${body}
+    </div>
+  </div>`;
+}
+
 function render() {
   destroyCharts();
 
@@ -3500,6 +3590,8 @@ function render() {
     <div class="insights-row">
       ${insights.map(i => `<div class="insight-chip ${i.good === true ? 'good' : i.good === false ? 'warn' : 'neutral'}">${esc(i.text)}</div>`).join('')}
     </div>` : ''}
+
+    ${renderTarjetaCard(data)}
 
     <div class="row row-2-1">
       <div class="card">
