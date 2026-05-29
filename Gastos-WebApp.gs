@@ -206,8 +206,20 @@ function _agregarCiclo(p) {
     const venc   = _parseFechaInput(p.vencimiento);
     if (!cierre) return { ok: false, error: 'Fecha de cierre inválida' };
     if (!venc)   return { ok: false, error: 'Fecha de vencimiento inválida' };
-    _ciclosSheet_().appendRow([cierre, venc]);
-    return { ok: true };
+    const h = _ciclosSheet_();
+    // Anti-duplicados: si ya existe una fila con el mismo cierre, actualizar su
+    // vencimiento en vez de agregar una fila nueva (sirve también para corregir).
+    const data = h.getDataRange().getValues();
+    for (let i = 1; i < data.length; i++) {
+      const c = data[i][0];
+      if (c instanceof Date && c.getFullYear() === cierre.getFullYear() &&
+          c.getMonth() === cierre.getMonth() && c.getDate() === cierre.getDate()) {
+        h.getRange(i + 1, 2).setValue(venc);
+        return { ok: true, action: 'updated' };
+      }
+    }
+    h.appendRow([cierre, venc]);
+    return { ok: true, action: 'appended' };
   } catch (err) { return { ok: false, error: err.message }; }
 }
 
