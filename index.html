@@ -633,6 +633,15 @@ html[data-theme="dark"] .rutina-delta.down { color: #FCA5A5; background: rgba(21
 .form-section input, .form-section select { padding: 10px 14px; border: 1px solid #ECECE8; border-radius: 8px; font-size: 14px; font-family: inherit; background: #FFFFFF; color: #1F1F1E; outline: none; width: 100%; }
 .form-section input:focus, .form-section select:focus { border-color: #5346B0; }
 .form-buttons { display: flex; gap: 8px; margin-top: 8px; }
+.pay-method { display: flex; flex-direction: column; gap: 6px; }
+.pay-label { font-size: 11px; font-weight: 600; color: #79786F; text-transform: uppercase; letter-spacing: 0.04em; }
+.pay-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pay-chip { flex: 1 1 calc(50% - 3px); min-width: 0; padding: 9px 8px; border: 1px solid #ECECE8; background: #FFFFFF; border-radius: 9px; font-size: 12.5px; font-family: inherit; color: #4A4845; cursor: pointer; transition: background 0.15s, color 0.15s, border-color 0.15s; white-space: nowrap; }
+.pay-chip:hover { border-color: #C9C7BF; }
+.pay-chip.active { background: #1F1F1E; color: #FFFFFF; border-color: #1F1F1E; }
+.pay-hint { font-size: 11.5px; color: #1D9E75; }
+html[data-theme="dark"] .pay-chip { background: #232328; border-color: rgba(255,255,255,0.08); color: #BFBDB4; }
+html[data-theme="dark"] .pay-chip.active { background: #E8E5DE; color: #18181C; border-color: #E8E5DE; }
 .btn-cancel, .btn-save { padding: 11px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 500; border: none; }
 .btn-cancel { background: transparent; color: #79786F; flex: 1; border: 1px solid #ECECE8; }
 .btn-cancel:hover { background: #F2F1ED; color: #1F1F1E; }
@@ -1427,13 +1436,17 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
       <input type="number" id="g-monto" placeholder="Monto" inputmode="numeric" required min="1" step="any">
       <select id="g-categoria" required></select>
       <input type="text" id="g-descripcion" placeholder="Descripción" required>
-      <select id="g-cuenta">
-        <option value="">Cuenta / billetera (opcional)</option>
-        <option>Efectivo</option>
-        <option>Mercado Pago</option>
-        <option>Banco / Débito</option>
-        <option>Tarjeta de crédito</option>
-      </select>
+      <div class="pay-method">
+        <div class="pay-label">¿Cómo lo pagaste?</div>
+        <div class="pay-chips">
+          <button type="button" class="pay-chip" data-cuenta="Efectivo">💵 Efectivo</button>
+          <button type="button" class="pay-chip" data-cuenta="Mercado Pago">📱 Mercado Pago</button>
+          <button type="button" class="pay-chip" data-cuenta="Banco / Débito">🏦 Débito</button>
+          <button type="button" class="pay-chip" data-cuenta="Tarjeta de crédito">💳 Tarjeta</button>
+        </div>
+        <input type="hidden" id="g-cuenta">
+        <div id="pay-hint" class="pay-hint"></div>
+      </div>
       <div class="form-buttons">
         <button type="button" class="btn-cancel" data-cancel>Cancelar</button>
         <button type="submit" class="btn-save">Cargar gasto</button>
@@ -4251,6 +4264,24 @@ function setupAddForm() {
   document.getElementById('i-fecha').value = todayStr;
   const cCierre = document.getElementById('c-cierre');
   if (cCierre) cCierre.value = todayStr;
+  // Medio de pago (chips) del form de gasto
+  const payChips = document.querySelectorAll('#form-gasto .pay-chip');
+  const gCuenta = document.getElementById('g-cuenta');
+  const payHint = document.getElementById('pay-hint');
+  function _resetPago() {
+    payChips.forEach(c => c.classList.remove('active'));
+    if (gCuenta) gCuenta.value = '';
+    if (payHint) payHint.textContent = '';
+  }
+  payChips.forEach(chip => chip.addEventListener('click', () => {
+    const val = chip.getAttribute('data-cuenta');
+    const wasActive = chip.classList.contains('active');
+    payChips.forEach(c => c.classList.remove('active'));
+    if (wasActive) { gCuenta.value = ''; payHint.textContent = ''; return; }
+    chip.classList.add('active');
+    gCuenta.value = val;
+    payHint.textContent = (val === 'Tarjeta de crédito') ? '💳 Se imputa al mes del vencimiento de tu tarjeta.' : '';
+  }));
   function _refreshCicloInfo() {
     const el = document.getElementById('ciclo-info');
     if (!el) return;
@@ -4260,7 +4291,7 @@ function setupAddForm() {
     const f = ms => { const d = new Date(ms); return d.getDate() + '/' + (d.getMonth() + 1); };
     el.innerHTML = '✓ Último ciclo cargado: cierre <strong>' + f(ult.cierre) + '</strong> · vence <strong>' + f(ult.vencimiento) + '</strong>';
   }
-  function openModal() { overlay.classList.add('show'); setModalStatus('',''); _refreshCicloInfo(); }
+  function openModal() { overlay.classList.add('show'); setModalStatus('',''); _refreshCicloInfo(); _resetPago(); }
   function closeModal() { overlay.classList.remove('show'); }
   function switchTab(t) {
     tabs.forEach(x => x.classList.toggle('active', x.dataset.tab === t));
