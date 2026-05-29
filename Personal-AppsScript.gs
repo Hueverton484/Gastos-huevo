@@ -276,3 +276,73 @@ function addComida(p) {
 
   return { ok: true, action: 'updated', row: writeRow, sheet: sheetName };
 }
+
+/* ── RECORDATORIOS POR TELEGRAM ──────────────────────────────────────
+ * Setup (una sola vez):
+ *  1) En Telegram, hablale a @BotFather → /newbot → seguí los pasos → te da un TOKEN.
+ *  2) Buscá tu bot nuevo, apretá "Start" (o mandale "hola").
+ *  3) En Apps Script: ⚙ Project Settings → "Script Properties" → Add property:
+ *        TELEGRAM_TOKEN   = (el token del BotFather)
+ *  4) Ejecutá verMiChatId() una vez → Ver registros (Logs) → copiá el número "id".
+ *  5) Volvé a Script Properties → Add property:
+ *        TELEGRAM_CHAT_ID = (ese id)
+ *  6) Probá con testTelegram(). Si te llega el mensaje, ¡listo!
+ *  7) Activá el disparador diario: ⏰ Triggers → Add Trigger →
+ *        función: enviarRecordatorios · Time-driven · Day timer · 6am–7am.
+ *
+ *  ⚠️ El token NO va en el código (usamos Script Properties) para que no quede
+ *     expuesto en el repo público.
+ * ─────────────────────────────────────────────────────────────────── */
+function _tgGet(k) { return PropertiesService.getScriptProperties().getProperty(k) || ''; }
+
+function enviarTelegram(texto) {
+  const token  = _tgGet('TELEGRAM_TOKEN');
+  const chatId = _tgGet('TELEGRAM_CHAT_ID');
+  if (!token || !chatId) { Logger.log('Falta TELEGRAM_TOKEN o TELEGRAM_CHAT_ID en Script Properties'); return; }
+  UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ chat_id: chatId, text: texto, parse_mode: 'HTML' }),
+    muteHttpExceptions: true
+  });
+}
+
+// Ejecutar UNA vez (después de escribirle al bot) para obtener tu chat_id.
+function verMiChatId() {
+  const token = _tgGet('TELEGRAM_TOKEN');
+  if (!token) { Logger.log('Primero cargá TELEGRAM_TOKEN en Script Properties'); return; }
+  const res = UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/getUpdates', { muteHttpExceptions: true });
+  Logger.log(res.getContentText());  // buscá  "chat":{"id": XXXXXXX  → ese número es tu chat_id
+}
+
+// Mensaje de prueba para verificar que el bot anda.
+function testTelegram() {
+  enviarTelegram('✅ <b>Test OK</b>\nTu bot de recordatorios está funcionando.');
+}
+
+// Corre todos los días (disparador). Avisa solo si HOY toca y todavía no cargaste.
+function enviarRecordatorios() {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+
+  // ¿Hay una fila con fecha = hoy y el dato (col indicada) todavía vacío?
+  function pendienteHoy(sheetName, colDatoIdx) {
+    const sh = ss.getSheetByName(sheetName);
+    if (!sh) return false;
+    const d = sh.getDataRange().getValues();
+    for (let i = 0; i < d.length; i++) {
+      const f = d[i][1]; // col B = fecha
+      if (f instanceof Date && sameDay(f, hoy)) {
+        const val = d[i][colDatoIdx];
+        return (val === '' || val == null);
+      }
+    }
+    return false;
+  }
+
+  if (pendienteHoy('Peso', 2)) { // col C = peso
+    enviarTelegram('⚖️ <b>¡A pesarte apenas te despertás! 💪</b>\nDespués cargá el valor en la app.');
+  }
+  if (pendienteHoy('Medidas', 2)) { // col C = cintura
+    enviarTelegram('📏 <b>¡Hoy toca tomar las medidas!</b>\nCintura, cadera, pecho, brazo y muslo.');
+  }
+}
