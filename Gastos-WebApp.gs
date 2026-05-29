@@ -691,6 +691,23 @@ function getDashboardData() {
     ingresosDetalle[k].push({ fecha: fecha.getTime(), desc, monto });
   }
 
+  // Asegurar que existan los meses FUTUROS que toca cada cuota, aunque no
+  // tengan otros gastos. Así el plan completo de cuotas se ve en la proyección.
+  (cuotas || []).forEach(f => {
+    const nc = parseInt(f[2]);
+    const fs = String(f[3]);
+    if (isNaN(nc) || nc < 1) return;
+    let fi;
+    if (fs.includes('/')) { const p = fs.split('/'); fi = new Date(+p[2], +p[1] - 1, +p[0]); }
+    else fi = new Date(fs);
+    if (isNaN(fi.getTime())) return;
+    for (let i = 0; i < nc; i++) {
+      const d = new Date(fi.getFullYear(), fi.getMonth() + i, 1);
+      const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      if (!porMes[k]) porMes[k] = { año: d.getFullYear(), mesNum: d.getMonth(), gastos: [], cats: {}, cuentas: {}, dias: {} };
+    }
+  });
+
   const meses = Object.keys(porMes);
   for (const k of meses) {
     const info = porMes[k];
