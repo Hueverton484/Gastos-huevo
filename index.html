@@ -115,6 +115,10 @@ body {
 .measure-row .m-delta.up   { color: #9B3B1E; background: #FEF3F0; }
 .measure-row .m-delta.down { color: #0F6E56; background: #F0FAF6; }
 .measure-row .m-delta.neutral { color: #ABA9A0; background: transparent; }
+.measure-compare-note { font-size: 11.5px; color: #ABA9A0; text-align: center; margin-top: 6px; padding-top: 10px; border-top: 1px solid #F2F1ED; }
+.measure-compare-note strong { color: #79786F; font-weight: 600; }
+html[data-theme="dark"] .measure-compare-note { color: #8E8C84; border-top-color: rgba(255,255,255,0.07); }
+html[data-theme="dark"] .measure-compare-note strong { color: #BFBDB4; }
 html[data-theme="dark"] .measure-row .m-label { color: #E8E5DE; }
 html[data-theme="dark"] .measure-row .m-value { color: #BFBDB4; }
 html[data-theme="dark"] .measure-row { border-color: rgba(255,255,255,0.06) !important; }
@@ -1926,7 +1930,7 @@ function renderSalud() {
       <div class="card">
         <div class="card-header">
           <div class="card-title">Medidas actuales</div>
-          <div class="card-meta">${latestM ? fmtDayMonth(latestM.fecha) : '—'}</div>
+          <div class="card-meta">${latestM ? 'Medición del ' + fmtDayMonth(latestM.fecha) : '—'}</div>
         </div>
         ${latestM ? `<div class="measures-list">
           ${measureRow('Cintura', 'cintura', 'cm')}
@@ -1935,6 +1939,7 @@ function renderSalud() {
           ${measureRow('Brazo', 'brazo', 'cm')}
           ${measureRow('Muslo', 'muslo', 'cm')}
           ${latestM.ratio ? `<div class="measure-row" style="border-top:1px solid #F2F1ED;padding-top:10px;margin-top:6px;"><span class="m-label">Ratio cintura/cadera</span><span class="m-value">${(latestM.ratio * 100).toFixed(1)}%</span><span class="m-delta neutral">—</span></div>` : ''}
+          ${prevM ? `<div class="measure-compare-note">Los ↑↓ comparan con la medición del <strong>${fmtDayMonth(prevM.fecha)}</strong></div>` : ''}
         </div>` : '<div class="goal-meta" style="padding:40px 0;text-align:center;">Sin medidas registradas todavía.</div>'}
       </div>
     </div>
