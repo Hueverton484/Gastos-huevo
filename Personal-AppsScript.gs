@@ -114,36 +114,34 @@ function addPeso(p) {
   const C_FECHA = 2, C_PESO = 3, C_VAR = 4, C_NOTA = 5;
   const data = sheet.getDataRange().getValues();
 
-  // Buscar fila existente por fecha (col B)
-  let rowIdx = -1;
+  // Acoplar a la fila cuya fecha sea la MÁS CERCANA a la cargada
+  // (la tabla viene pre-cargada con las fechas semanales).
+  let bestIdx = -1, bestDist = Infinity;
   for (let i = 0; i < data.length; i++) {
     const d = data[i][C_FECHA - 1];
-    if (d instanceof Date && sameDay(d, fecha)) { rowIdx = i; break; }
-  }
-
-  // Último peso registrado antes de esta fecha (para la variación)
-  let prevPeso = null;
-  for (let i = data.length - 1; i >= 0; i--) {
-    if (i === rowIdx) continue;
-    const d = data[i][C_FECHA - 1];
-    const v = data[i][C_PESO - 1];
-    if (d instanceof Date && d.getTime() < fecha.getTime() && typeof v === 'number' && v > 0) {
-      prevPeso = v; break;
+    if (d instanceof Date) {
+      const dist = Math.abs(d.getTime() - fecha.getTime());
+      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
     }
   }
-  const variacion = (prevPeso != null) ? Math.round((peso - prevPeso) * 10) / 10 : '';
 
-  if (rowIdx >= 0) {
-    const writeRow = rowIdx + 1;
+  if (bestIdx >= 0) {
+    const writeRow = bestIdx + 1;
+    // Variación = peso - último peso cargado en una fila anterior
+    let prevPeso = null;
+    for (let i = bestIdx - 1; i >= 0; i--) {
+      const v = data[i][C_PESO - 1];
+      if (typeof v === 'number' && v > 0) { prevPeso = v; break; }
+    }
+    const variacion = (prevPeso != null) ? Math.round((peso - prevPeso) * 10) / 10 : '';
     sheet.getRange(writeRow, C_PESO).setValue(peso);
     if (variacion !== '') sheet.getRange(writeRow, C_VAR).setValue(variacion);
     if (nota)             sheet.getRange(writeRow, C_NOTA).setValue(nota);
-    return { ok: true, action: 'updated', row: writeRow };
-  } else {
-    // Fila nueva: A vacía + B-E. Empezar en A con '' para alinear.
-    sheet.appendRow(['', fecha, peso, variacion, nota]);
-    return { ok: true, action: 'appended', row: sheet.getLastRow() };
+    return { ok: true, action: 'snapped', row: writeRow };
   }
+  // Sin filas con fecha: agregar al final
+  sheet.appendRow(['', fecha, peso, '', nota]);
+  return { ok: true, action: 'appended', row: sheet.getLastRow() };
 }
 
 /* ── MEDIDAS ────────────────────────────────────────── */
@@ -164,26 +162,29 @@ function addMedida(p) {
   const ratio   = (!isNaN(cintura) && !isNaN(cadera) && cadera > 0) ? (cintura / cadera) : '';
 
   const data = sheet.getDataRange().getValues();
-  // Buscar fila existente por fecha (col B)
-  let rowIdx = -1;
+  // Acoplar a la fila cuya fecha sea la MÁS CERCANA a la cargada
+  // (la tabla viene pre-cargada con las fechas mensuales).
+  let bestIdx = -1, bestDist = Infinity;
   for (let i = 0; i < data.length; i++) {
     const d = data[i][C_FECHA - 1];
-    if (d instanceof Date && sameDay(d, fecha)) { rowIdx = i; break; }
+    if (d instanceof Date) {
+      const dist = Math.abs(d.getTime() - fecha.getTime());
+      if (dist < bestDist) { bestDist = dist; bestIdx = i; }
+    }
   }
 
-  if (rowIdx >= 0) {
-    const writeRow = rowIdx + 1;
+  if (bestIdx >= 0) {
+    const writeRow = bestIdx + 1;
     const set = (col, val) => { if (!(typeof val === 'number' && isNaN(val)) && val !== '') sheet.getRange(writeRow, col).setValue(val); };
     set(C_CINT, cintura); set(C_CAD, cadera); set(C_RATIO, ratio);
     set(C_PECHO, pecho); set(C_BRAZO, brazo); set(C_MUSLO, muslo);
     if (notas) sheet.getRange(writeRow, C_NOTAS).setValue(notas);
-    return { ok: true, action: 'updated', row: writeRow };
-  } else {
-    // Fila nueva: A vacía + B-I. NaN → '' para no romper el orden de columnas.
-    const v = x => (typeof x === 'number' && isNaN(x)) ? '' : x;
-    sheet.appendRow(['', fecha, v(cintura), v(cadera), v(ratio), v(pecho), v(brazo), v(muslo), notas]);
-    return { ok: true, action: 'appended', row: sheet.getLastRow() };
+    return { ok: true, action: 'snapped', row: writeRow };
   }
+  // Sin filas con fecha: agregar al final
+  const v = x => (typeof x === 'number' && isNaN(x)) ? '' : x;
+  sheet.appendRow(['', fecha, v(cintura), v(cadera), v(ratio), v(pecho), v(brazo), v(muslo), notas]);
+  return { ok: true, action: 'appended', row: sheet.getLastRow() };
 }
 
 /* ── ACTIVIDAD (sesión de gym) ──────────────────────── */
