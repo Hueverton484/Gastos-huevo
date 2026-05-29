@@ -202,7 +202,7 @@ function addMedida(p) {
   return { ok: true, action: rowIdx >= 0 ? 'updated' : 'appended', row: writeRow };
 }
 
-/* ── ACTIVIDAD (sesión de gym/cardio) ──────────────── */
+/* ── ACTIVIDAD (sesión de gym) ──────────────────────── */
 function addActividad(p) {
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Actividad');
   if (!sheet) throw 'No existe la hoja "Actividad"';
@@ -211,13 +211,17 @@ function addActividad(p) {
   const duracion = parseFloat(p.duracion);
   const intensidad = parseFloat(p.intensidad);
   const notas = p.notas || '';
+  const cardio = (p.cardio || '').trim();
   if (!tipo) throw 'El tipo es obligatorio';
 
+  // IMPORTANTE: la col A es un separador vacío; los datos van de B a G
+  // (igual que el resto del libro). Por eso anteponemos '' para empezar en B.
+  // B=fecha, C=tipo/categoría, D=duración, E=intensidad, F=notas, G=¿hubo cardio?
   sheet.appendRow([
-    fecha, tipo,
+    '', fecha, tipo,
     isNaN(duracion)   ? '' : duracion,
     isNaN(intensidad) ? '' : intensidad,
-    notas
+    notas, cardio
   ]);
   return { ok: true, action: 'appended', row: sheet.getLastRow() };
 }

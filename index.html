@@ -341,6 +341,7 @@ html[data-theme="dark"] .comida-month-picker { background: rgba(255,255,255,0.04
 .gym-session-date .mo   { font-size: 9.5px; text-transform: uppercase; letter-spacing: 0.04em; }
 .gym-session-info { display: flex; flex-direction: column; gap: 2px; }
 .gym-session-type { font-size: 13px; font-weight: 500; color: #1F1F1E; }
+.gym-cardio-chip { display: inline-block; margin-left: 7px; font-size: 9.5px; font-weight: 600; color: #2F6FB0; background: rgba(74,144,217,0.14); padding: 1px 7px; border-radius: 9px; vertical-align: middle; }
 .gym-session-meta { font-size: 11px; color: #ABA9A0; }
 .gym-session-duration { font-size: 12px; color: #79786F; font-variant-numeric: tabular-nums; }
 .gym-session-intensity { display: flex; gap: 2px; align-items: center; }
@@ -1269,13 +1270,15 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     <form class="form-section active" id="form-gym">
       <input type="date" id="gym-fecha" required>
       <select id="gym-tipo" required>
-        <option value="">Tipo de sesión…</option>
-        <option>Pesas</option>
-        <option>Cardio</option>
-        <option>Pesas + cardio</option>
-        <option>Funcional</option>
-        <option>Calistenia</option>
-        <option>Otro</option>
+        <option value="">Categoría de entrenamiento…</option>
+        <option>Pecho y bícep</option>
+        <option>Espalda y trícep</option>
+        <option>Hombros</option>
+      </select>
+      <select id="gym-cardio">
+        <option value="">¿Hubo cardio?…</option>
+        <option value="Sí">Sí</option>
+        <option value="No">No</option>
       </select>
       <input type="number" id="gym-duracion" placeholder="Duración (minutos)" inputmode="numeric" min="1" max="600">
       <select id="gym-intensidad">
@@ -1976,16 +1979,18 @@ function parseActividad(data) {
   const keys = cols.map((_, i) => cols[i] || ('col_' + i));
   const findIdx = (re) => cols.findIndex(c => re.test(c));
   let iF = findIdx(/fecha/i);    if (iF < 0) iF = 0;
-  let iT = findIdx(/tipo/i);     if (iT < 0) iT = 1;
+  let iT = findIdx(/tipo|categor/i); if (iT < 0) iT = 1;
   let iD = findIdx(/duraci/i);   if (iD < 0) iD = 2;
   let iI = findIdx(/intensi/i);  if (iI < 0) iI = 3;
   let iN = findIdx(/nota/i);     if (iN < 0) iN = 4;
+  let iC = findIdx(/cardio/i);   if (iC < 0) iC = 5;
   return data.rows.map(r => ({
     fecha: parseGsheetDate(r[keys[iF]]),
     tipo: r[keys[iT]] || '',
     duracion: num(r[keys[iD]]),
     intensidad: num(r[keys[iI]]),
-    notas: r[keys[iN]] || ''
+    notas: r[keys[iN]] || '',
+    cardio: r[keys[iC]] || ''
   })).filter(r => r.fecha && r.tipo)
     .sort((a, b) => b.fecha - a.fecha);
 }
@@ -2069,8 +2074,8 @@ async function loadGymData(force) {
   let fetchOk = false;
   try {
     const [actividad, rutina] = await Promise.all([
-      // Actividad: col A vacía, datos en B-F. Mismo patrón que Peso.
-      fetchSheetJSONP('Actividad', { range: 'B:F', headers: 0 }),
+      // Actividad: col A vacía, datos en B-G (G = ¿hubo cardio?). Mismo patrón que Peso.
+      fetchSheetJSONP('Actividad', { range: 'B:G', headers: 0 }),
       // Rutina: la tabla de progreso de pesos tiene headers reales en la fila 18
       // (las filas 16-17 son título + instrucciones). Datos desde fila 19.
       fetchSheetJSONP('Rutina', { range: 'B18:N100', headers: 1 })
@@ -2154,7 +2159,7 @@ function renderGym() {
     return `<div class="gym-session-row">
       <div class="gym-session-date"><span class="day">${day}</span><span class="mo">${mo}</span></div>
       <div class="gym-session-info">
-        <div class="gym-session-type">${esc(s.tipo)}</div>
+        <div class="gym-session-type">${esc(s.tipo)}${/^s/i.test(s.cardio || '') ? '<span class="gym-cardio-chip">🏃 Cardio</span>' : ''}</div>
         <div class="gym-session-meta">${s.notas ? esc(s.notas) : (isNaN(s.intensidad) ? 'sin intensidad' : 'Intensidad ' + s.intensidad + '/10')}</div>
       </div>
       <div class="gym-session-duration">${isNaN(s.duracion) ? '—' : s.duracion + ' min'}</div>
@@ -3231,7 +3236,8 @@ document.addEventListener('DOMContentLoaded', () => {
       tipo:       document.getElementById('gym-tipo').value,
       duracion:   document.getElementById('gym-duracion').value,
       intensidad: document.getElementById('gym-intensidad').value,
-      notas:      document.getElementById('gym-notas').value
+      notas:      document.getElementById('gym-notas').value,
+      cardio:     document.getElementById('gym-cardio').value
     }, r => {
       if (r && r.ok) {
         setStatus('gym-status', '✓ Sesión guardada', 'success');
