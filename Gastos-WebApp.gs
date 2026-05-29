@@ -708,11 +708,27 @@ function getDashboardData() {
     }
   });
 
+  // Gastos fijos: SOLO los de tarjeta y SOLO en meses futuros (van al resumen
+  // del ciclo). Los fijos que no son de tarjeta no se cuentan (solo afectan
+  // liquidez y no tienen momento de pago exacto).
+  const _hoyFij = new Date();
+  const curKeyFij = _hoyFij.getFullYear() + '-' + String(_hoyFij.getMonth() + 1).padStart(2, '0');
+  const fijosTarjeta = (gastosFijos || []).filter(f => String(f[3] || '').trim() === 'Tarjeta de crédito' && parseFloat(f[1]) > 0);
+  if (fijosTarjeta.length) {
+    for (let i = 1; i <= 4; i++) {
+      const d = new Date(_hoyFij.getFullYear(), _hoyFij.getMonth() + i, 1);
+      const k = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+      if (!porMes[k]) porMes[k] = { año: d.getFullYear(), mesNum: d.getMonth(), gastos: [], cats: {}, cuentas: {}, dias: {} };
+    }
+  }
+
   const meses = Object.keys(porMes);
   for (const k of meses) {
     const info = porMes[k];
     const cuotasMes = _getCuotasMes(cuotas, info.año, info.mesNum);
-    const fijosMes = _getGastosFijosMes(gastosFijos, info.año, info.mesNum);
+    const fijosMes = (k > curKeyFij) ? fijosTarjeta.map(f => ({
+      desc: (f[0] || '') + ' [Fijo]', monto: parseFloat(f[1]), cat: f[2] || 'Otro', cuenta: 'Tarjeta de crédito', esFijo: true
+    })) : [];
     for (const item of [...cuotasMes, ...fijosMes]) {
       if (!item.monto || item.monto <= 0) continue;
       info.gastos.push({
