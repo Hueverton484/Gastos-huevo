@@ -32,6 +32,10 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'add_ciclo' && e.parameter.callback) {
     return _jsonpResponse(e.parameter.callback, _agregarCiclo(e.parameter));
   }
+  // Modo "add_cuota": guardar una compra en cuotas
+  if (e && e.parameter && e.parameter.action === 'add_cuota' && e.parameter.callback) {
+    return _jsonpResponse(e.parameter.callback, _agregarCuota(e.parameter));
+  }
 
   // Modo "ask": consulta al asistente financiero (Gemini)
   // Llamada: ?action=ask&q=texto-pregunta&history=JSON&callback=funcName
@@ -220,6 +224,39 @@ function _agregarCiclo(p) {
     }
     h.appendRow([cierre, venc]);
     return { ok: true, action: 'appended' };
+  } catch (err) { return { ok: false, error: err.message }; }
+}
+
+// ── COMPRAS EN CUOTAS (desde la PWA) ────────────────────────
+// Guarda una compra en cuotas en la hoja "Cuotas". La "1ª cuota" se guarda
+// como el VENCIMIENTO del ciclo de la fecha de compra, así la cuota 1 cae en
+// el mes que se paga (y _getCuotasMes reparte el resto en los meses sucesivos).
+function _agregarCuota(p) {
+  try {
+    const desc = (p.desc || '').toString().trim();
+    const montoTotal = parseFloat(p.montoTotal);
+    const nCuotas = parseInt(p.nCuotas);
+    const fechaCompra = _parseFechaInput(p.fechaCompra);
+    const categoria = (p.categoria || 'Otro').toString().trim() || 'Otro';
+    if (!desc) return { ok: false, error: 'Falta la descripción' };
+    if (isNaN(montoTotal) || montoTotal <= 0) return { ok: false, error: 'Monto total inválido' };
+    if (isNaN(nCuotas) || nCuotas < 1) return { ok: false, error: 'Cantidad de cuotas inválida' };
+    if (!fechaCompra) return { ok: false, error: 'Fecha de compra inválida' };
+
+    // La 1ª cuota cae en el vencimiento del ciclo de la compra.
+    const ciclos = _leerCiclos();
+    const vencMs = _vencimientoParaFecha(ciclos, fechaCompra.getTime());
+    const fecha1 = vencMs ? new Date(vencMs) : fechaCompra;
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let h = ss.getSheetByName('Cuotas');
+    if (!h) {
+      h = ss.insertSheet('Cuotas');
+      h.getRange(1, 1, 1, 6).setValues([['Descripción', 'Monto Total', 'N° Cuotas', 'Fecha 1° Cuota (dd/mm/aaaa)', 'Categoría', 'Cuenta']]).setFontWeight('bold');
+    }
+    h.appendRow([desc, montoTotal, nCuotas, fecha1, categoria, 'Tarjeta de crédito']);
+    _regenerarResumenSilencioso();
+    return { ok: true };
   } catch (err) { return { ok: false, error: err.message }; }
 }
 

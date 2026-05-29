@@ -1430,6 +1430,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
       <button class="modal-tab active" data-tab="gasto" type="button">Gasto</button>
       <button class="modal-tab" data-tab="ingreso" type="button">Ingreso</button>
       <button class="modal-tab" data-tab="ciclo" type="button">💳 Tarjeta</button>
+      <button class="modal-tab" data-tab="cuota" type="button">📆 Cuotas</button>
     </div>
     <form class="form-section active" id="form-gasto">
       <input type="date" id="g-fecha" required>
@@ -1471,6 +1472,20 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
       <div class="form-buttons">
         <button type="button" class="btn-cancel" data-cancel>Cancelar</button>
         <button type="submit" class="btn-save">Guardar ciclo</button>
+      </div>
+    </form>
+    <form class="form-section" id="form-cuota">
+      <p style="font-size:12.5px;color:#79786F;margin:0 0 2px;line-height:1.4;">Compra en cuotas con tarjeta. La <strong>1ª cuota</strong> cae en el próximo vencimiento; el resto, en los meses siguientes.</p>
+      <input type="text" id="cuo-desc" placeholder="¿Qué compraste? (ej: Notebook)" required>
+      <input type="number" id="cuo-total" placeholder="Monto total" inputmode="numeric" required min="1" step="any">
+      <input type="number" id="cuo-n" placeholder="Cantidad de cuotas" inputmode="numeric" required min="1" max="60">
+      <label style="font-size:11px;color:#79786F;font-weight:500;">Fecha de la compra</label>
+      <input type="date" id="cuo-fecha" required>
+      <select id="cuo-categoria"></select>
+      <div id="cuo-preview" style="font-size:12px;color:#1D9E75;"></div>
+      <div class="form-buttons">
+        <button type="button" class="btn-cancel" data-cancel>Cancelar</button>
+        <button type="submit" class="btn-save">Agregar cuotas</button>
       </div>
     </form>
     <div class="modal-status" id="modal-status"></div>
@@ -4249,7 +4264,10 @@ function setupAddForm() {
   const catSelect = document.getElementById('g-categoria');
   if (catSelect && _DATA && _DATA.categorias) {
     const cats = _DATA.categorias.filter(c => c !== 'Ahorro').concat(['Ahorro']);
-    catSelect.innerHTML = '<option value="">Categoría…</option>' + cats.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+    const opts = '<option value="">Categoría…</option>' + cats.map(c => '<option value="' + esc(c) + '">' + esc(c) + '</option>').join('');
+    catSelect.innerHTML = opts;
+    const cuoCat = document.getElementById('cuo-categoria');
+    if (cuoCat) cuoCat.innerHTML = opts;
   }
   if (_ADD_FORM_READY) return;
   _ADD_FORM_READY = true;
@@ -4264,6 +4282,8 @@ function setupAddForm() {
   document.getElementById('i-fecha').value = todayStr;
   const cCierre = document.getElementById('c-cierre');
   if (cCierre) cCierre.value = todayStr;
+  const cuoFecha = document.getElementById('cuo-fecha');
+  if (cuoFecha) cuoFecha.value = todayStr;
   // Medio de pago (chips) del form de gasto
   const payChips = document.querySelectorAll('#form-gasto .pay-chip');
   const gCuenta = document.getElementById('g-cuenta');
@@ -4321,6 +4341,17 @@ function setupAddForm() {
   });
   const formCiclo = document.getElementById('form-ciclo');
   if (formCiclo) formCiclo.addEventListener('submit', e => { e.preventDefault(); submitCiclo(); });
+  const formCuota = document.getElementById('form-cuota');
+  if (formCuota) formCuota.addEventListener('submit', e => { e.preventDefault(); submitCuota(); });
+  // Preview en vivo del valor por cuota
+  const _cuoPrev = () => {
+    const total = parseFloat(document.getElementById('cuo-total').value);
+    const n = parseInt(document.getElementById('cuo-n').value);
+    const el = document.getElementById('cuo-preview');
+    if (el) el.textContent = (!isNaN(total) && total > 0 && !isNaN(n) && n > 0)
+      ? '≈ ' + fmtMoney(Math.round(total / n)) + ' por mes · ' + n + ' cuotas' : '';
+  };
+  ['cuo-total', 'cuo-n'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', _cuoPrev); });
 }
 
 function submitCiclo() {
@@ -4347,6 +4378,41 @@ function submitCiclo() {
   };
   script.src = APPS_SCRIPT_URL + '?action=add_ciclo&callback=' + cbName +
     '&cierre=' + encodeURIComponent(cierre) + '&vencimiento=' + encodeURIComponent(venc) + '&t=' + Date.now();
+  script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.', 'error'); };
+  document.body.appendChild(script);
+}
+
+function submitCuota() {
+  const desc = document.getElementById('cuo-desc').value.trim();
+  const total = document.getElementById('cuo-total').value;
+  const n = document.getElementById('cuo-n').value;
+  const fecha = document.getElementById('cuo-fecha').value;
+  const cat = document.getElementById('cuo-categoria').value || 'Otro';
+  if (!desc || !total || !n || !fecha) { setModalStatus('Completá descripción, monto, cuotas y fecha', 'error'); return; }
+  setModalStatus('Guardando…', '');
+  const saveBtns = document.querySelectorAll('.btn-save');
+  saveBtns.forEach(b => b.disabled = true);
+  const cbName = '__addCuota_' + Date.now();
+  const script = document.createElement('script');
+  function cleanup() {
+    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+    if (script.parentNode) script.parentNode.removeChild(script);
+    saveBtns.forEach(b => b.disabled = false);
+  }
+  const timeoutId = setTimeout(() => { cleanup(); setModalStatus('Tiempo agotado. Probá de nuevo.', 'error'); }, 20000);
+  window[cbName] = function(r) {
+    clearTimeout(timeoutId); cleanup();
+    if (r && r.ok) {
+      setModalStatus('✓ Cuotas agregadas', 'success');
+      ['cuo-desc','cuo-total','cuo-n'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      const prev = document.getElementById('cuo-preview'); if (prev) prev.textContent = '';
+      setTimeout(() => { document.getElementById('modal-overlay').classList.remove('show'); load(); }, 800);
+    } else { setModalStatus('Error: ' + ((r && r.error) || 'desconocido'), 'error'); }
+  };
+  script.src = APPS_SCRIPT_URL + '?action=add_cuota&callback=' + cbName +
+    '&desc=' + encodeURIComponent(desc) + '&montoTotal=' + encodeURIComponent(total) +
+    '&nCuotas=' + encodeURIComponent(n) + '&fechaCompra=' + encodeURIComponent(fecha) +
+    '&categoria=' + encodeURIComponent(cat) + '&t=' + Date.now();
   script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.', 'error'); };
   document.body.appendChild(script);
 }
