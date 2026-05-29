@@ -346,3 +346,18 @@ function enviarRecordatorios() {
     enviarTelegram('📏 <b>¡Hoy toca tomar las medidas!</b>\nCintura, cadera, pecho, brazo y muslo.');
   }
 }
+
+// Ejecutar UNA vez para programar el recordatorio diario (~8:30–9:00 am).
+// Borra cualquier activador previo de enviarRecordatorios para no duplicar.
+function programarRecordatorioDiario() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'enviarRecordatorios') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('enviarRecordatorios')
+    .timeBased()
+    .everyDays(1)
+    .atHour(8)
+    .nearMinute(45)  // ventana ~8:30–9:00 am
+    .create();
+  Logger.log('Listo: recordatorio diario programado para ~8:30–9:00 am.');
+}
