@@ -271,12 +271,15 @@ html[data-theme="dark"] .facu-mat-cod { color: #6B6A64; }
 .plan-legend .leg { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; color: #79786F; }
 .plan-legend .leg .sw { width: 11px; height: 11px; border-radius: 3px; flex-shrink: 0; }
 .plan-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 8px; margin: 0 -4px; }
-.plan-cols { display: flex; gap: 12px; padding: 0 4px; min-width: min-content; align-items: flex-start; }
-.plan-col { display: flex; flex-direction: column; gap: 8px; width: 158px; flex: 0 0 auto; }
-.plan-col-head { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: #9A988F; padding: 2px 2px 4px; min-height: 15px; white-space: nowrap; }
+.plan-cols { display: flex; gap: 20px; padding: 0 4px; min-width: min-content; align-items: flex-start; }
+.plan-group { display: flex; flex-direction: column; gap: 8px; flex: 0 0 auto; }
+.plan-group-head { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: #9A988F; padding-bottom: 6px; border-bottom: 1px solid #ECECE8; white-space: nowrap; }
+.plan-group-cols { display: flex; gap: 10px; align-items: flex-start; }
+.plan-col { display: flex; flex-direction: column; gap: 8px; width: 156px; flex: 0 0 auto; }
 .plan-mat {
   background: #FAFAF7; border: 1px solid #ECECE8; border-left: 4px solid #D8D7D0;
   border-radius: 9px; padding: 9px 10px; cursor: pointer; position: relative;
+  display: flex; flex-direction: column; min-height: 88px;
   transition: transform 0.14s ease, box-shadow 0.14s ease;
 }
 .plan-mat:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.06); }
@@ -287,8 +290,8 @@ html[data-theme="dark"] .facu-mat-cod { color: #6B6A64; }
 .plan-mat.cursando { border-left-color: #4A90D9; background: rgba(74,144,217,0.06); }
 .plan-mat.pendiente { border-left-color: #D8D7D0; }
 .plan-mat-cod { font-size: 10px; font-weight: 700; color: #ABA9A0; }
-.plan-mat-name { font-size: 12px; font-weight: 600; color: #1F1F1E; line-height: 1.25; margin: 2px 0 5px; }
-.plan-mat-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.plan-mat-name { font-size: 12px; font-weight: 600; color: #1F1F1E; line-height: 1.25; margin: 2px 0 6px; }
+.plan-mat-foot { display: flex; align-items: center; justify-content: space-between; gap: 6px; margin-top: auto; }
 .plan-mat-vh { font-size: 9.5px; font-weight: 700; color: #9A988F; background: #F2F1ED; padding: 1px 5px; border-radius: 5px; white-space: nowrap; }
 .plan-mat-req { font-size: 9.5px; color: #ABA9A0; text-align: right; line-height: 1.2; }
 .plan-mat.disponible { box-shadow: 0 0 0 2px rgba(29,158,117,0.35); }
@@ -300,7 +303,7 @@ html[data-theme="dark"] .plan-mat.regular { background: rgba(193,142,72,0.12); }
 html[data-theme="dark"] .plan-mat.cursando { background: rgba(74,144,217,0.13); }
 html[data-theme="dark"] .plan-mat-name { color: #E8E5DE; }
 html[data-theme="dark"] .plan-mat-vh { background: rgba(255,255,255,0.08); color: #8E8C84; }
-html[data-theme="dark"] .plan-col-head { color: #6B6A64; }
+html[data-theme="dark"] .plan-group-head { color: #8E8C84; border-bottom-color: rgba(255,255,255,0.1); }
 .facu-estado {
   font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 20px;
   border: none; cursor: pointer; font-family: inherit; white-space: nowrap;
@@ -2793,21 +2796,33 @@ function facuPlanMapHtml() {
   Object.keys(FACU_PLAN.materias).forEach(computeLevel);
   const cols = {};
   Object.keys(FACU_PLAN.materias).forEach(cod => { (cols[lvl[cod]] = cols[lvl[cod]] || []).push(cod); });
-  const levels = Object.keys(cols).map(Number).sort((a, b) => a - b);
-  const headFor = L => L === 0 ? 'Primer tramo' : (L === 1 ? 'Segundo tramo' : (L === 2 ? 'Ciclo profesional' : '&nbsp;'));
-  const OPT_LEVEL = 3;
-  const colsHtml = levels.map(L => {
-    const mats = cols[L].slice().sort((a, b) => (+a) - (+b));
+  // Una columna de tarjetas a partir de un nivel; opcionalmente con cards extra al final.
+  const colHtml = (L, extra) => {
+    const mats = (cols[L] || []).slice().sort((a, b) => (+a) - (+b));
     let cards = mats.map(cod => facuPlanCard(cod, estadoMap)).join('');
-    if (L === OPT_LEVEL) cards += facuPlanOptCard() + facuPlanOptCard();
-    return `<div class="plan-col"><div class="plan-col-head">${headFor(L)}</div>${cards}</div>`;
+    if (extra) cards += extra;
+    return `<div class="plan-col">${cards}</div>`;
+  };
+  // El ciclo profesional son todos los niveles >= 2 (sus columnas comparten un único título).
+  const cicloLevels = Object.keys(cols).map(Number).filter(L => L >= 2).sort((a, b) => a - b);
+  const cicloCols = cicloLevels.map((L, i) => {
+    const extra = (i === cicloLevels.length - 1) ? (facuPlanOptCard() + facuPlanOptCard()) : '';
+    return colHtml(L, extra);
   }).join('');
   const leg = (color, txt) => `<span class="leg"><span class="sw" style="background:${color};"></span>${txt}</span>`;
+  const group = (titulo, cls, contenido) => `<div class="plan-group${cls ? ' ' + cls : ''}">
+      <div class="plan-group-head">${titulo}</div>
+      <div class="plan-group-cols">${contenido}</div>
+    </div>`;
   return `<div class="plan-legend">
       ${leg('#1D9E75', 'Aprobada')}${leg('#C18E48', 'Regular')}${leg('#4A90D9', 'Cursando')}${leg('#D8D7D0', 'Pendiente')}
       <span class="leg"><span class="sw" style="background:#fff;box-shadow:0 0 0 2px rgba(29,158,117,0.45);"></span>Disponible para cursar</span>
     </div>
-    <div class="plan-scroll"><div class="plan-cols">${colsHtml}</div></div>
+    <div class="plan-scroll"><div class="plan-cols">
+      ${group('Primer tramo', '', colHtml(0))}
+      ${group('Segundo tramo', '', colHtml(1))}
+      ${group('Ciclo profesional', 'plan-group-ciclo', cicloCols)}
+    </div></div>
     <div class="plan-hint">Deslizá horizontal para ver el ciclo profesional · Tocá una materia para cambiar su estado · Los números son las correlativas necesarias.</div>`;
 }
 
