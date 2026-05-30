@@ -243,10 +243,15 @@ function _agregarCuota(p) {
     if (isNaN(nCuotas) || nCuotas < 1) return { ok: false, error: 'Cantidad de cuotas inválida' };
     if (!fechaCompra) return { ok: false, error: 'Fecha de compra inválida' };
 
-    // La 1ª cuota cae en el vencimiento del ciclo de la compra.
+    // Aplicar el corte de tarjeta:
+    //  - Compras PRE-corte → cuota 1 en el mes de la compra (modelo viejo),
+    //    así integra con el "dump" del resumen ya cargado y _ajustarPagosTarjeta
+    //    la resta correctamente, evitando doble conteo.
+    //  - Compras POST-corte → cuota 1 en el vencimiento del ciclo (modelo nuevo).
     const ciclos = _leerCiclos();
     const vencMs = _vencimientoParaFecha(ciclos, fechaCompra.getTime());
-    const fecha1 = vencMs ? new Date(vencMs) : fechaCompra;
+    const preCorte = fechaCompra.getTime() < CORTE_TARJETA;
+    const fecha1 = preCorte ? fechaCompra : (vencMs ? new Date(vencMs) : fechaCompra);
 
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let h = ss.getSheetByName('Cuotas');
