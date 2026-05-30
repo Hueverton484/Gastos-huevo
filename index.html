@@ -604,6 +604,15 @@ html[data-theme="dark"] .rutina-delta.down { color: #FCA5A5; background: rgba(21
 .chat-input:focus { border-color: #5346B0; }
 .chat-send { padding: 10px 18px; background: #1F1F1E; color: #FFFFFF; border: none; border-radius: 8px; cursor: pointer; font-size: 13px; font-family: inherit; font-weight: 500; }
 .chat-send:disabled { background: #ABA9A0; cursor: wait; }
+.chat-icon-btn { width: 40px; padding: 0; background: transparent; border: 1px solid #ECECE8; border-radius: 8px; font-size: 16px; cursor: pointer; color: #79786F; font-family: inherit; transition: background 0.15s, border-color 0.15s, color 0.15s, transform 0.15s; line-height: 1; }
+.chat-icon-btn:hover { background: #F2F1ED; color: #1F1F1E; }
+.chat-icon-btn.listening { background: #A32D2D; border-color: #A32D2D; color: #FFFFFF; animation: chat-mic-pulse 0.9s ease-in-out infinite; }
+@keyframes chat-mic-pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.chat-icon-btn.on { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+html[data-theme="dark"] .chat-icon-btn { background: transparent; border-color: rgba(255,255,255,0.10); color: #8E8C84; }
+html[data-theme="dark"] .chat-icon-btn:hover { background: rgba(255,255,255,0.06); color: #E8E5DE; }
+html[data-theme="dark"] .chat-icon-btn.on { background: #1D9E75; border-color: #1D9E75; color: #FFFFFF; }
+html[data-theme="dark"] .chat-icon-btn.listening { background: #A32D2D; border-color: #A32D2D; color: #FFFFFF; }
 
 /* FAB y modal */
 .fab {
@@ -3785,8 +3794,10 @@ function render() {
         <button class="chat-sugg" data-q="¿En qué categoría estoy gastando más de lo razonable?">¿Dónde gasto de más?</button>
       </div>
       <div class="chat-input-row">
+        <button class="chat-icon-btn" id="chat-mic" type="button" title="Hablar (dictar tu pregunta)" aria-label="Hablar">🎤</button>
         <input type="text" class="chat-input" id="chat-input" placeholder="Ej: si gasto 40k en una salida, ¿qué tan mal lo ves?">
         <button class="chat-send" id="chat-send">Preguntar</button>
+        <button class="chat-icon-btn" id="chat-speak" type="button" title="Lectura por voz" aria-label="Lectura por voz">🔇</button>
       </div>
     </div>
 
@@ -4255,6 +4266,28 @@ function setupTransactionSearch(allTx) {
 
 let _CHAT_HISTORY = [];
 const CHAT_HISTORY_LIMIT = 10;
+let _CHAT_SPEAK_ON = false;
+try { _CHAT_SPEAK_ON = localStorage.getItem('misgastos_chat_speak') === '1'; } catch(e) {}
+
+function _speakChat(text) {
+  if (!_CHAT_SPEAK_ON || !window.speechSynthesis || !text) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'es-AR';
+    u.rate = 1.05;
+    u.pitch = 1.0;
+    const voices = speechSynthesis.getVoices();
+    if (voices && voices.length) {
+      const v = voices.find(v => /^es(-AR|_AR)/i.test(v.lang)) ||
+                voices.find(v => /^es(-419|_419|-MX|_MX|-US|_US)/i.test(v.lang)) ||
+                voices.find(v => /^es/i.test(v.lang)) ||
+                voices.find(v => /spanish/i.test(v.name));
+      if (v) u.voice = v;
+    }
+    speechSynthesis.speak(u);
+  } catch(e) {}
+}
 let _ADD_FORM_READY = false;
 
 function setupAddForm() {
@@ -4456,10 +4489,53 @@ function setupChat() {
   const sendBtn = document.getElementById('chat-send');
   if (!input || !sendBtn) return;
   _CHAT_HISTORY = [];
+  if (sendBtn.dataset.bound === '1') return;
+  sendBtn.dataset.bound = '1';
   sendBtn.addEventListener('click', () => askAssistant(input.value));
   input.addEventListener('keydown', e => { if (e.key === 'Enter') askAssistant(input.value); });
   document.querySelectorAll('.chat-sugg').forEach(btn => {
     btn.addEventListener('click', () => { const q = btn.getAttribute('data-q'); input.value = q; askAssistant(q); });
+  });
+
+  // Toggle de lectura por voz (TTS)
+  const speakBtn = document.getElementById('chat-speak');
+  function _refreshSpeakBtn() {
+    if (!speakBtn) return;
+    speakBtn.classList.toggle('on', _CHAT_SPEAK_ON);
+    speakBtn.textContent = _CHAT_SPEAK_ON ? '🔊' : '🔇';
+    speakBtn.title = _CHAT_SPEAK_ON ? 'Lectura por voz: ON (tocá para apagar)' : 'Lectura por voz: OFF (tocá para encender)';
+  }
+  _refreshSpeakBtn();
+  if (speakBtn) speakBtn.addEventListener('click', () => {
+    _CHAT_SPEAK_ON = !_CHAT_SPEAK_ON;
+    try { localStorage.setItem('misgastos_chat_speak', _CHAT_SPEAK_ON ? '1' : '0'); } catch(e){}
+    _refreshSpeakBtn();
+    if (!_CHAT_SPEAK_ON && window.speechSynthesis) speechSynthesis.cancel();
+  });
+
+  // Botón de micrófono (Speech-to-Text)
+  const micBtn = document.getElementById('chat-mic');
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) { if (micBtn) micBtn.style.display = 'none'; return; }
+  let _rec = null, _recActive = false;
+  if (micBtn) micBtn.addEventListener('click', () => {
+    if (_recActive) { try { _rec.stop(); } catch(e){} return; }
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    _rec = new SR();
+    _rec.lang = 'es-AR';
+    _rec.interimResults = false;
+    _rec.maxAlternatives = 1;
+    _rec.continuous = false;
+    _rec.onstart = () => { _recActive = true; micBtn.classList.add('listening'); };
+    _rec.onend   = () => { _recActive = false; micBtn.classList.remove('listening'); };
+    _rec.onerror = () => { _recActive = false; micBtn.classList.remove('listening'); };
+    _rec.onresult = (e) => {
+      let t = '';
+      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+      t = t.trim();
+      if (t) { input.value = t; askAssistant(t); }
+    };
+    try { _rec.start(); } catch(e) {}
   });
 }
 
@@ -4478,6 +4554,7 @@ function appendChatMsg(text, kind, id) {
 function askAssistant(question) {
   question = (question || '').trim();
   if (!question) return;
+  if (window.speechSynthesis) speechSynthesis.cancel();
   const input = document.getElementById('chat-input');
   const sendBtn = document.getElementById('chat-send');
   if (input) { input.value = ''; input.disabled = true; }
@@ -4502,6 +4579,7 @@ function askAssistant(question) {
     clearTimeout(timeoutId); cleanup();
     const answer = (response && response.answer) ? response.answer : 'Sin respuesta.';
     showAnswer(answer);
+    _speakChat(answer);
     _CHAT_HISTORY.push({ role: 'user', text: question });
     _CHAT_HISTORY.push({ role: 'model', text: answer });
     if (_CHAT_HISTORY.length > CHAT_HISTORY_LIMIT) _CHAT_HISTORY = _CHAT_HISTORY.slice(-CHAT_HISTORY_LIMIT);
