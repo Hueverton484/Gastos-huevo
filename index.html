@@ -4513,29 +4513,46 @@ function setupChat() {
     if (!_CHAT_SPEAK_ON && window.speechSynthesis) speechSynthesis.cancel();
   });
 
-  // Botón de micrófono (Speech-to-Text)
+  // Botón de micrófono (Speech-to-Text) — siempre visible; si el navegador
+  // no soporta, mostramos un mensaje al tocar (mejor que ocultarlo en silencio).
   const micBtn = document.getElementById('chat-mic');
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) { if (micBtn) micBtn.style.display = 'none'; return; }
   let _rec = null, _recActive = false;
   if (micBtn) micBtn.addEventListener('click', () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      appendChatMsg('Tu navegador no soporta dictado por voz (Safari en iPhone suele ser quisquilloso con esto). Por ahora escribí la pregunta a mano — anda perfecto en la compu.', 'ai');
+      return;
+    }
     if (_recActive) { try { _rec.stop(); } catch(e){} return; }
     if (window.speechSynthesis) speechSynthesis.cancel();
-    _rec = new SR();
-    _rec.lang = 'es-AR';
-    _rec.interimResults = false;
-    _rec.maxAlternatives = 1;
-    _rec.continuous = false;
-    _rec.onstart = () => { _recActive = true; micBtn.classList.add('listening'); };
-    _rec.onend   = () => { _recActive = false; micBtn.classList.remove('listening'); };
-    _rec.onerror = () => { _recActive = false; micBtn.classList.remove('listening'); };
-    _rec.onresult = (e) => {
-      let t = '';
-      for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
-      t = t.trim();
-      if (t) { input.value = t; askAssistant(t); }
-    };
-    try { _rec.start(); } catch(e) {}
+    try {
+      _rec = new SR();
+      _rec.lang = 'es-AR';
+      _rec.interimResults = false;
+      _rec.maxAlternatives = 1;
+      _rec.continuous = false;
+      _rec.onstart = () => { _recActive = true; micBtn.classList.add('listening'); };
+      _rec.onend   = () => { _recActive = false; micBtn.classList.remove('listening'); };
+      _rec.onerror = (e) => {
+        _recActive = false; micBtn.classList.remove('listening');
+        const r = (e && e.error) || '';
+        let msg = '';
+        if (r === 'not-allowed' || r === 'service-not-allowed') msg = 'Necesito permiso de micrófono. Andá a Ajustes → Safari → Micrófono y aceptá para este sitio.';
+        else if (r === 'no-speech') msg = 'No detecté nada. Probá de nuevo más cerca del micrófono.';
+        else if (r === 'audio-capture') msg = 'No pude usar el micrófono. ¿Lo tiene otra app abierta?';
+        else msg = 'No pude escuchar tu voz (' + (r || 'error desconocido') + '). Probá escribiendo.';
+        appendChatMsg(msg, 'ai');
+      };
+      _rec.onresult = (e) => {
+        let t = '';
+        for (let i = 0; i < e.results.length; i++) t += e.results[i][0].transcript;
+        t = t.trim();
+        if (t) { input.value = t; askAssistant(t); }
+      };
+      _rec.start();
+    } catch(e) {
+      appendChatMsg('Tu navegador rechazó el dictado por voz. En iPhone esto suele pasar — funciona desde Chrome en la compu.', 'ai');
+    }
   });
 }
 
