@@ -522,6 +522,88 @@ function _calcularIngresoMensualPromedio(data) {
   return Math.round(total / conIngresos.length);
 }
 
+function _construirContextoTarjeta(data) {
+  const ciclos = data.ciclos || [];
+  const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR');
+  const NOMBRES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const mesLabel = (mesNum, año) => NOMBRES[mesNum] + ' ' + año;
+  const hoy = new Date();
+  const curKey = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
+
+  let cicloInfo;
+  if (!ciclos.length) {
+    cicloInfo = 'Ciclos: ninguno cargado todavía (Huevo no cargó cierres en la app).';
+  } else {
+    const ult = ciclos[ciclos.length - 1];
+    const cierre = new Date(ult.cierre);
+    const venc = new Date(ult.vencimiento);
+    const diasAlCierre = Math.ceil((cierre.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+    if (diasAlCierre > 0) {
+      cicloInfo = 'Ciclo en curso: cierra el ' + cierre.getDate() + '/' + (cierre.getMonth() + 1) +
+        ' (en ' + diasAlCierre + ' días) · vence ' + venc.getDate() + '/' + (venc.getMonth() + 1) + '.';
+    } else {
+      cicloInfo = 'Último ciclo cargado: cierre ' + cierre.getDate() + '/' + (cierre.getMonth() + 1) +
+        ' (hace ' + Math.abs(diasAlCierre) + ' días) · vence ' + venc.getDate() + '/' + (venc.getMonth() + 1) +
+        '. El siguiente cierre todavía no fue cargado (Huevo lo carga cuando el banco se lo confirma).';
+    }
+  }
+
+  // Resúmenes futuros con desglose
+  const futuros = [];
+  (data.meses || []).forEach(m => {
+    if (m.key <= curKey) return;
+    let compras = 0, cuotas = 0, fijos = 0;
+    (m.gastos || []).forEach(g => {
+      if (g.cuenta !== 'Tarjeta de crédito') return;
+      if (g.esCuota) cuotas += g.monto;
+      else if (g.esFijo) fijos += g.monto;
+      else compras += g.monto;
+    });
+    const total = compras + cuotas + fijos;
+    if (total > 0) futuros.push({ key: m.key, año: m.año, mesNum: m.mesNum, compras, cuotas, fijos, total });
+  });
+  futuros.sort((a, b) => a.key < b.key ? -1 : 1);
+
+  let resumenes;
+  if (!futuros.length) {
+    resumenes = 'Próximos resúmenes: sin consumo de tarjeta proyectado por ahora.';
+  } else {
+    const p = futuros[0];
+    const desg = [];
+    if (p.compras > 0) desg.push('compras del ciclo ' + fmt(p.compras));
+    if (p.cuotas > 0) desg.push('cuotas ' + fmt(p.cuotas));
+    if (p.fijos > 0) desg.push('fijos ' + fmt(p.fijos));
+    resumenes = 'Próximo resumen a pagar (' + mesLabel(p.mesNum, p.año) + '): ' + fmt(p.total) +
+      ' (' + desg.join(' + ') + ').';
+    if (futuros.length > 1) {
+      const sigs = futuros.slice(1, 4).map(f => mesLabel(f.mesNum, f.año) + ' ' + fmt(f.total));
+      resumenes += '\nResúmenes siguientes: ' + sigs.join(' · ') + '.';
+    }
+  }
+
+  // Cuotas con timing detallado
+  let cuotasInfo = '';
+  if (data.cuotas && data.cuotas.length) {
+    const lineas = data.cuotas.map(c => {
+      const monthly = c.montoTotal / c.nCuotas;
+      let t = '';
+      if (c.inicio) {
+        const ini = new Date(c.inicio);
+        const diff = (hoy.getFullYear() - ini.getFullYear()) * 12 + (hoy.getMonth() - ini.getMonth());
+        const restantes = Math.max(0, c.nCuotas - Math.max(0, diff));
+        const fin = new Date(ini.getFullYear(), ini.getMonth() + c.nCuotas - 1, 1);
+        t = ' · 1ª en ' + NOMBRES[ini.getMonth()] + ' ' + ini.getFullYear() +
+            ', última en ' + NOMBRES[fin.getMonth()] + ' ' + fin.getFullYear() +
+            ' · quedan ' + restantes + '/' + c.nCuotas;
+      }
+      return '  • ' + c.desc + ': ' + fmt(monthly) + '/mes' + t;
+    }).join('\n');
+    cuotasInfo = '\nCuotas activas:\n' + lineas;
+  }
+
+  return 'Tarjeta de crédito:\n' + cicloInfo + '\n' + resumenes + cuotasInfo;
+}
+
 function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) {
   const meses = data.meses || [];
   if (!meses.length) return 'No hay gastos cargados todavía.';
@@ -607,6 +689,7 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
     'Promedios históricos por categoría:\n' + (catPromTexto || '  (sin histórico)') + '\n\n' +
     'Metas de ahorro:\n' + metas + '\n\n' +
     'Cuotas vigentes:\n' + cuotas + '\n\n' +
+    _construirContextoTarjeta(data) + '\n\n' +
     'Gastos rechazados recientes (últimos 30 días — decisiones de NO gastar que Huevo tomó conmigo):\n' + rechazosTexto;
 }
 
