@@ -20,7 +20,41 @@
 //
 // ============================================================
 
+// ============================================================
+// AUTH POR TOKEN
+// ============================================================
+// El API_TOKEN se guarda en Script Properties (igual que GEMINI_API_KEY).
+//
+// SETUP (primera vez):
+//   1) En este Apps Script: Project Settings → Script Properties → Add property
+//      Key: API_TOKEN
+//      Value: <generá un string random largo, ej. 32+ caracteres>
+//   2) En la PWA, al primer arranque te pide ese mismo token y lo guarda en
+//      localStorage. Después se manda automáticamente en cada request.
+//
+// SI API_TOKEN NO ESTÁ configurado, la API queda ABIERTA — modo de transición
+// para no romper la PWA mientras configurás. Configurar el token es lo PRIMERO
+// que hay que hacer si el repo está expuesto.
+function _checkAuth(p) {
+  const expected = PropertiesService.getScriptProperties().getProperty('API_TOKEN');
+  if (!expected) return { ok: true, _openMode: true }; // modo transición
+  const got = (p && p.token) ? String(p.token) : '';
+  if (got !== expected) {
+    return { ok: false, error: 'Token inválido. Configurá tu API_TOKEN en la PWA.' };
+  }
+  return { ok: true };
+}
+
 function doGet(e) {
+  // ── AUTH: validar token antes de cualquier acción ──────────
+  const auth = _checkAuth(e && e.parameter);
+  if (!auth.ok) {
+    const cb = (e && e.parameter && e.parameter.callback) ? e.parameter.callback : null;
+    if (cb) return _jsonpResponse(cb, auth);
+    return ContentService.createTextOutput(JSON.stringify(auth))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+
   // Modo "add_gasto" / "add_ingreso": cargar entrada nueva desde el dashboard
   if (e && e.parameter && e.parameter.action === 'add_gasto' && e.parameter.callback) {
     return _jsonpResponse(e.parameter.callback, _agregarGasto(e.parameter));
@@ -421,8 +455,24 @@ function askGemini(question, history) {
 
     'PRECISIÓN NUMÉRICA (no negociable):\n' +
     '• Cuando menciones un número en pesos, sacalo SIEMPRE del CONTEXTO FINANCIERO o de algo que Huevo haya dicho explícitamente en este chat. NUNCA inventes ni redondees mal. Si no estás 100% seguro de un número, no lo digas — preguntá o usá un rango.\n' +
-    '• Los gastos por categoría del mes en curso son los que figuran en la sección "Gastos del mes por categoría". No mezcles ese número con el de cuotas distribuidas ni con promedios históricos sin aclarar. Si vas a sumar dos cosas, decí explícitamente cuáles.\n' +
+    '• Los gastos por categoría del mes en curso son los del bloque "POR CATEGORÍA — ACTUAL vs ESPERADO". No mezcles ese número con el de cuotas distribuidas ni con promedios históricos sin aclarar. Si vas a sumar dos cosas, decí explícitamente cuáles.\n' +
     '• Si Huevo te tira un número sin contexto (ej. "125.000"), preguntale qué representa antes de razonar — no asumas que es el precio de algo ni el total del mes.\n\n' +
+
+    'SALDO Y BUFFER ACUMULADO (entendelo bien antes de hablar de plata disponible):\n' +
+    '• "Saldo libre del mes en curso" es SOLO lo que ingresó este mes menos lo gastado y lo ahorrado ESTE MES. Es la métrica del flujo del mes.\n' +
+    '• "Buffer acumulado de meses anteriores" es plata REAL que quedó en la cuenta de Huevo porque en meses pasados gastó menos de lo que ingresó. Está disponible, no es teórica.\n' +
+    '• "TOTAL DISPONIBLE" = saldo del mes + buffer. Esto es lo que efectivamente tiene en la cuenta para usar. Cuando opinás sobre capacidad de gastar algo, esta es la métrica que más pesa.\n' +
+    '• Un buffer alto significa que Huevo viene ahorrando de hecho aunque no lo etiquete como "Ahorro". Si se queja de que "no le alcanza" pero el buffer es alto, decíselo con honestidad — "técnicamente tenés $X de buffer arrastrado, no estás tan apretado como creés".\n' +
+    '• Si el buffer es bajo o cero, eso significa que Huevo viene gastando todo lo que entra mes a mes. Eso es información relevante para opinar sobre nuevos gastos discrecionales.\n' +
+    '• NO confundas el "saldo del mes" con el "total disponible". Si Huevo pregunta "¿me alcanza?", la respuesta usa el total. Si pregunta "¿cómo voy este mes?", usás el saldo del mes (es la foto del flujo).\n\n' +
+
+    'USO DE COMPARACIONES (esto es lo que separa una respuesta criteriosa de una vacía):\n' +
+    '• ANTES de opinar sobre la situación financiera o sobre si Huevo puede/debe hacer un gasto, mirá el bloque "RITMO DEL MES vs TU PROMEDIO HISTÓRICO". Si el mes viene apreciablemente distinto al promedio (>15% para arriba o para abajo), eso ENTRA en tu respuesta. No es opcional.\n' +
+    '• Cuando el mes viene MÁS AUSTERO de lo habitual (ritmo diario por debajo del promedio, proyección por debajo, categorías importantes en negativo), eso da MARGEN REAL que un mes promedio no daría. Si en un mes normal le dirías "no" a un gasto, pero este mes viene 30% más austero, eso puede cambiar el veredicto — y tu respuesta tiene que ser explícita sobre esa lógica ("normalmente te frenaría, pero venís X% por debajo del promedio así que te alcanza el aire").\n' +
+    '• Cuando el mes viene MÁS DERROCHADOR (ritmo por arriba, proyección por arriba, categorías que se dispararon), sé MÁS estricto que de costumbre. El "ya venís arriba" es argumento de peso.\n' +
+    '• El bloque "POR CATEGORÍA — ACTUAL vs ESPERADO" es la fuente de verdad para juzgar una categoría. NO mires solo el monto absoluto: $50.000 en Comida puede ser mucho o poco según el promedio. Usá el porcentaje "vs lo esperado" y el "esperado a esta altura" — ese ya viene prorrateado al día del mes en que estamos.\n' +
+    '• La "Proyección si seguís a este ritmo" vs "Si volvés al ritmo promedio" son DOS escenarios distintos. Usalos para contestar "¿qué pasa si sigo así?" vs "¿qué pasa si me normalizo?". No los confundas con el saldo libre actual.\n' +
+    '• La trayectoria vs mismo día del mes anterior es comparación directa: si llevás menos gastado que en el mismo día del mes pasado, eso es una señal concreta, mencionala cuando corresponda.\n\n' +
 
     'PROYECCIONES Y ESCENARIOS HIPOTÉTICOS (importante):\n' +
     '• Cuando Huevo plantea un escenario hipotético — "si solo gasto X", "si no gasto nada esta semana", "si gasto X cada día", "si me toca una salida más", "si llega un ingreso extra de Y" — TENÉS QUE HACER LA MATEMÁTICA, no contestar en abstracto. Tirar la cuenta es la respuesta principal.\n' +
@@ -604,6 +654,130 @@ function _construirContextoTarjeta(data) {
   return 'Tarjeta de crédito:\n' + cicloInfo + '\n' + resumenes + cuotasInfo;
 }
 
+// Construye el bloque comparativo: ritmo del mes vs promedio histórico,
+// proyección de fin de mes, por categoría con delta vs esperado a esta altura,
+// y trayectoria contra el mismo día del mes anterior. Esto es lo que le permite
+// a Gemini decir cosas como "venís 30% más austero, eso da margen para...".
+function _construirRitmoMes(meses, m, dayOfMonth, daysInMonth, isCurrent) {
+  const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR');
+  // Histórico = meses cerrados (todos menos el actual) con gasto > 0
+  const hist = meses.slice(isCurrent ? 1 : 0).filter(x => x.totalGastos > 0);
+  if (!hist.length) {
+    return 'RITMO DEL MES: (todavía no hay meses históricos cerrados para comparar)';
+  }
+  if (!isCurrent || dayOfMonth === 0) {
+    // Para meses pasados no tiene sentido proyectar; devolvemos un bloque mínimo.
+    return '';
+  }
+
+  // ─── Promedios por mes histórico ──────────────────────────────
+  const dailyHist = hist.reduce((s, x) => {
+    const dpm = new Date(x.año, x.mesNum + 1, 0).getDate();
+    return s + (x.totalGastos / dpm);
+  }, 0) / hist.length;
+  const totalPromedioMes = hist.reduce((s, x) => s + x.totalGastos, 0) / hist.length;
+  const diasGastoHist = hist.reduce((s, x) => s + (x.diasConGasto || 0), 0) / hist.length;
+
+  // ─── Métricas del mes en curso ────────────────────────────────
+  const dailyActual = m.totalGastos / dayOfMonth;
+  const projAlRitmoActual = dailyActual * daysInMonth;
+  const projVolviendoAlPromedio = m.totalGastos + dailyHist * (daysInMonth - dayOfMonth);
+  const diasGastoEsperado = diasGastoHist * (dayOfMonth / 30);
+
+  // Helper de porcentaje firmado
+  const pctSigned = (a, b) => {
+    if (!b || b <= 0) return null;
+    const p = Math.round((a / b - 1) * 100);
+    return (p >= 0 ? '+' : '') + p + '%';
+  };
+  const dailyDeltaTxt = pctSigned(dailyActual, dailyHist);
+  const projDeltaTxt = pctSigned(projAlRitmoActual, totalPromedioMes);
+
+  // ─── Por categoría: actual vs esperado a esta altura ──────────
+  const catTotales = {}, catMeses = {};
+  for (const mes of hist) {
+    for (const [cat, val] of Object.entries(mes.cats || {})) {
+      if (cat === 'Ahorro' || val <= 0) continue;
+      catTotales[cat] = (catTotales[cat] || 0) + val;
+      catMeses[cat] = (catMeses[cat] || 0) + 1;
+    }
+  }
+  const catPromedios = {};
+  for (const [cat, total] of Object.entries(catTotales)) {
+    catPromedios[cat] = total / catMeses[cat];
+  }
+  const catSet = new Set([...Object.keys(m.cats || {}), ...Object.keys(catPromedios)]);
+  catSet.delete('Ahorro');
+
+  const proporcion = dayOfMonth / daysInMonth;
+  const catRows = [];
+  for (const cat of catSet) {
+    const actual = (m.cats && m.cats[cat]) || 0;
+    const prom = catPromedios[cat] || 0;
+    if (actual === 0 && prom === 0) continue;
+    const esperado = prom * proporcion;
+    let pctDelta = null, deltaTxt;
+    if (esperado >= 100) { // umbral mínimo para evitar % delirantes
+      pctDelta = Math.round((actual / esperado - 1) * 100);
+      deltaTxt = (pctDelta >= 0 ? '+' : '') + pctDelta + '% vs lo esperado';
+    } else if (actual > 0 && prom === 0) {
+      deltaTxt = 'categoría nueva este mes';
+      pctDelta = 999;
+    } else if (actual === 0 && prom > 0) {
+      deltaTxt = 'todavía $0 (normalmente gastás algo a esta altura)';
+      pctDelta = -100;
+    } else {
+      deltaTxt = 'sin comparación clara';
+    }
+    catRows.push({ cat, actual, prom, esperado, pctDelta, deltaTxt });
+  }
+  // Ordenar por anomalía: las más fuera de norma primero
+  catRows.sort((a, b) => Math.abs(b.pctDelta || 0) - Math.abs(a.pctDelta || 0));
+
+  const catLines = catRows.map(r =>
+    '  • ' + r.cat + ': ' + fmt(r.actual) +
+    ' (esperado a esta altura: ' + fmt(r.esperado) +
+    ' · promedio mes completo: ' + fmt(r.prom) +
+    ' · ' + r.deltaTxt + ')'
+  ).join('\n');
+
+  // ─── Trayectoria vs mismo día del mes anterior ────────────────
+  let trayec = '';
+  if (meses.length >= 2) {
+    const prev = meses[1];
+    const cutoff = dayOfMonth;
+    const sameDayPrev = (prev.gastos || []).reduce((s, g) => {
+      const fg = new Date(g.fecha);
+      if (fg.getFullYear() === prev.año && fg.getMonth() === prev.mesNum && fg.getDate() <= cutoff) {
+        return s + (g.monto || 0);
+      }
+      return s;
+    }, 0);
+    if (sameDayPrev > 0) {
+      const NOMBRES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+      const dTxt = pctSigned(m.totalGastos, sameDayPrev);
+      trayec = '• Al día ' + cutoff + ' de ' + NOMBRES[prev.mesNum] + ' llevabas gastado: ' +
+        fmt(sameDayPrev) + ' (hoy: ' + fmt(m.totalGastos) +
+        (dTxt ? ' · ' + dTxt + ')' : ')');
+    }
+  }
+
+  return 'RITMO DEL MES vs TU PROMEDIO HISTÓRICO:\n' +
+    '• Gasto por día actual: ' + fmt(dailyActual) +
+      ' · promedio histórico: ' + fmt(dailyHist) +
+      (dailyDeltaTxt ? ' (' + dailyDeltaTxt + ' vs promedio)' : '') + '\n' +
+    '• Si seguís a este ritmo, terminás el mes con: ' + fmt(projAlRitmoActual) +
+      ' (vs tu promedio mensual de ' + fmt(totalPromedioMes) +
+      (projDeltaTxt ? ' → ' + projDeltaTxt : '') + ')\n' +
+    '• Si volvés al ritmo promedio el resto del mes: ' + fmt(projVolviendoAlPromedio) + '\n' +
+    '• Días con gasto cargados este mes: ' + (m.diasConGasto || 0) +
+      ' (esperado a esta altura: ' + Math.round(diasGastoEsperado) +
+      ', promedio mes completo: ' + Math.round(diasGastoHist) + ')' +
+    (trayec ? '\n' + trayec : '') + '\n\n' +
+    'POR CATEGORÍA — ACTUAL vs ESPERADO a esta altura del mes (ordenadas por anomalía):\n' +
+    (catLines || '  (sin datos)');
+}
+
 function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) {
   const meses = data.meses || [];
   if (!meses.length) return 'No hay gastos cargados todavía.';
@@ -617,28 +791,16 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
   const dayOfMonth = isCurrent ? today.getDate() : daysInMonth;
   const daysRemaining = Math.max(0, daysInMonth - dayOfMonth);
   const dailyFromSaldo = daysRemaining > 0 ? Math.round(m.saldo / daysRemaining) : 0;
-  const dailyAvg = dayOfMonth > 0 ? Math.round(m.totalGastos / dayOfMonth) : 0;
+  const bufferEntrante = m.bufferEntrante || 0;
+  const totalDisponible = m.saldo + bufferEntrante;
+  const dailyFromTotal = daysRemaining > 0 ? Math.round(totalDisponible / daysRemaining) : 0;
 
   const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR');
 
-  const cats = Object.entries(m.cats || {})
-    .filter(([c, v]) => c !== 'Ahorro' && v > 0)
-    .sort((a, b) => b[1] - a[1])
-    .map(([c, v]) => '  • ' + c + ': ' + fmt(v))
-    .join('\n');
-
-  const catTotales = {}, catMeses = {};
-  for (const mes of meses) {
-    for (const [cat, val] of Object.entries(mes.cats || {})) {
-      if (cat === 'Ahorro' || val <= 0) continue;
-      catTotales[cat] = (catTotales[cat] || 0) + val;
-      catMeses[cat] = (catMeses[cat] || 0) + 1;
-    }
-  }
-  const catPromedios = Object.entries(catTotales)
-    .map(([c, v]) => [c, Math.round(v / catMeses[c])])
-    .sort((a, b) => b[1] - a[1]);
-  const catPromTexto = catPromedios.map(([c, v]) => '  • ' + c + ': ' + fmt(v) + '/mes promedio').join('\n');
+  // Bloque comparativo: ritmo vs promedio histórico + por categoría con delta.
+  // Esto reemplaza al "Gastos por categoría" + "Promedios históricos" sueltos,
+  // que obligaban al modelo a hacer la cuenta de cabeza (y la hacía mal).
+  const ritmoBloque = _construirRitmoMes(meses, m, dayOfMonth, daysInMonth, isCurrent);
 
   let metas = 'Sin metas activas.';
   if (data.metas && data.metas.length) {
@@ -680,13 +842,14 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
   return 'Mes en curso: ' + monthName + ' ' + m.año + ' (día ' + dayOfMonth + ' de ' + daysInMonth + ', faltan ' + daysRemaining + ' días)\n' +
     'Ingresos del mes: ' + fmt(m.ingreso) + '\n' +
     'Ingresos promedio mensuales (de meses cargados): ' + ingresoTxt + '\n' +
-    'Gastos del mes: ' + fmt(m.totalGastos) + '\n' +
+    'Gastos acumulados del mes: ' + fmt(m.totalGastos) + '\n' +
     'Ahorro del mes: ' + fmt(m.totalAhorro) + '\n' +
-    'Saldo libre: ' + fmt(m.saldo) + '\n' +
-    'Disponible por día (saldo / días restantes): ' + fmt(dailyFromSaldo) + '\n' +
-    'Promedio actual de gasto: ' + fmt(dailyAvg) + '/día\n\n' +
-    'Gastos del mes por categoría:\n' + (cats || '  (ninguno)') + '\n\n' +
-    'Promedios históricos por categoría:\n' + (catPromTexto || '  (sin histórico)') + '\n\n' +
+    'Saldo libre del mes en curso: ' + fmt(m.saldo) + '\n' +
+    'Buffer acumulado de meses anteriores (sobrante que quedó en la cuenta): ' + fmt(bufferEntrante) + '\n' +
+    'TOTAL DISPONIBLE en cuenta (saldo del mes + buffer): ' + fmt(totalDisponible) + '\n' +
+    'Disponible por día solo con saldo del mes: ' + fmt(dailyFromSaldo) + '\n' +
+    'Disponible por día con buffer incluido: ' + fmt(dailyFromTotal) + '\n\n' +
+    ritmoBloque + '\n\n' +
     'Metas de ahorro:\n' + metas + '\n\n' +
     'Cuotas vigentes:\n' + cuotas + '\n\n' +
     _construirContextoTarjeta(data) + '\n\n' +
@@ -874,6 +1037,28 @@ function getDashboardData() {
     };
   });
 
+  // ── BUFFER ACUMULADO ───────────────────────────────────────────
+  // El sobrante de cada mes (saldo positivo) queda físicamente en la cuenta y
+  // se arrastra como buffer disponible para el mes siguiente. Si un mes
+  // terminó en déficit, asumimos que el rojo lo cubriste con plata externa
+  // al tracking (ahorros previos, transferencia, etc.) → el buffer no va
+  // a negativo. Recorremos en orden cronológico (más viejo → más reciente).
+  // mesesData ya viene ordenado desc, iteramos desde el final.
+  let _buf = 0;
+  for (let i = mesesData.length - 1; i >= 0; i--) {
+    const mes = mesesData[i];
+    mes.bufferEntrante = _buf;
+    _buf = Math.max(0, _buf + mes.saldo);
+    mes.bufferSaliente = _buf;
+  }
+
+  // Auto-calcular el acumulado de metas sumando TODOS los gastos con categoría
+  // "Ahorro" del historial completo. Así cualquier gasto marcado como Ahorro
+  // (Cocos, USD, caja, lo que sea) suma automáticamente — sin tocar la hoja.
+  // El valor manual de la columna C en la hoja "Metas" queda ignorado y puede
+  // borrarse; solo se usa como fallback si aún no hay gastos de Ahorro cargados.
+  const totalAhorradoHistorico = mesesData.reduce((s, m) => s + (m.totalAhorro || 0), 0);
+
   const metas = metasRaw.map(m => {
     let limite = null;
     if (m[3]) {
@@ -881,7 +1066,12 @@ function getDashboardData() {
       if (fs.includes("/")) { const p = fs.split("/"); limite = new Date(+p[2], +p[1] - 1, +p[0]).getTime(); }
       else { const d = new Date(fs); if (!isNaN(d.getTime())) limite = d.getTime(); }
     }
-    return { nombre: m[0], objetivo: parseFloat(m[1]) || 0, acumulado: parseFloat(m[2]) || 0, limite: limite, notas: m[4] || "" };
+    // acumulado = suma histórica de gastos "Ahorro". Si no hay nada cargado,
+    // cae al valor manual de la hoja como fallback.
+    const acumulado = totalAhorradoHistorico > 0
+      ? totalAhorradoHistorico
+      : (parseFloat(m[2]) || 0);
+    return { nombre: m[0], objetivo: parseFloat(m[1]) || 0, acumulado: acumulado, limite: limite, notas: m[4] || "" };
   });
 
   const cuotasActivas = cuotas.map(c => {
