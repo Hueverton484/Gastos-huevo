@@ -1,0 +1,39 @@
+# ──────────────────────────────────────────────────────────────
+# Secretos y configuración local — NUNCA commitear
+# ──────────────────────────────────────────────────────────────
+.env
+.env.*
+*.env
+secrets.json
+credentials.json
+client_secret*.json
+service-account*.json
+*.key
+*.pem
+api_token.txt
+*_token.txt
+
+# Configuración local de editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos del SO
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Build / dependencias (por las dudas, si se agrega algún tooling)
+node_modules/
+dist/
+build/
+.cache/
+
+# Logs
+*.log
+
+# Backups locales
+*.bak
+*.backup
+*~
