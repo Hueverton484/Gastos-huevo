@@ -923,10 +923,17 @@ function getDashboardData() {
     };
     const info = porMes[k];
     info.gastos.push({ fecha: fecha.getTime(), desc, cat, monto, cuenta, esTarjeta, reasignado });
-    info.cats[cat] = (info.cats[cat] || 0) + monto;
+    // Las compras con cuenta TC son REFERENCIA: aparecen en el listado y en la
+    // card de tarjeta, pero NO reducen el saldo ni entran en las categorías.
+    // El gasto real es el pago del resumen, que sí se registra como gasto normal.
+    if (esTarjeta) {
+      info.tcMonto = (info.tcMonto || 0) + monto;
+    } else {
+      info.cats[cat] = (info.cats[cat] || 0) + monto;
+      if (cat !== "Ahorro") info.cuentas[cuenta] = (info.cuentas[cuenta] || 0) + monto;
+    }
     // Una compra reasignada al vencimiento no cuenta como "día con gasto" de ese mes futuro.
     if (!reasignado) info.dias[fecha.toISOString().slice(0, 10)] = true;
-    if (cat !== "Ahorro") info.cuentas[cuenta] = (info.cuentas[cuenta] || 0) + monto;
   }
 
   const ingresosDetalle = {};
@@ -987,8 +994,13 @@ function getDashboardData() {
         desc: item.desc, cat: item.cat, monto: item.monto,
         cuenta: item.cuenta, esCuota: !!item.esCuota, esFijo: !!item.esFijo
       });
-      info.cats[item.cat] = (info.cats[item.cat] || 0) + item.monto;
-      if (item.cat !== "Ahorro") info.cuentas[item.cuenta] = (info.cuentas[item.cuenta] || 0) + item.monto;
+      // Cuotas y fijos de tarjeta: también son referencia, no reducen saldo.
+      if (item.cuenta === 'Tarjeta de crédito') {
+        info.tcMonto = (info.tcMonto || 0) + item.monto;
+      } else {
+        info.cats[item.cat] = (info.cats[item.cat] || 0) + item.monto;
+        if (item.cat !== "Ahorro") info.cuentas[item.cuenta] = (info.cuentas[item.cuenta] || 0) + item.monto;
+      }
     }
   }
 
@@ -1011,10 +1023,14 @@ function getDashboardData() {
       g.ajuste = ajuste;
       g.monto = Math.max(0, g.monto - ajuste);
     }
-    info.cats = {}; info.cuentas = {};
+    info.cats = {}; info.cuentas = {}; info.tcMonto = 0;
     for (const g of info.gastos) {
-      info.cats[g.cat] = (info.cats[g.cat] || 0) + g.monto;
-      if (g.cat !== "Ahorro") info.cuentas[g.cuenta] = (info.cuentas[g.cuenta] || 0) + g.monto;
+      if (g.cuenta === 'Tarjeta de crédito' || g.esTarjeta) {
+        info.tcMonto += (g.monto || 0);
+      } else {
+        info.cats[g.cat] = (info.cats[g.cat] || 0) + g.monto;
+        if (g.cat !== "Ahorro") info.cuentas[g.cuenta] = (info.cuentas[g.cuenta] || 0) + g.monto;
+      }
     }
   }
 
@@ -1029,6 +1045,9 @@ function getDashboardData() {
       key: k, año: info.año, mesNum: info.mesNum,
       ingreso: ingreso, ingresos: ingresosDetalle[k] || [],
       totalGastos: totalGastos, totalAhorro: totalAhorro,
+      // totalTC: suma de compras/cuotas/fijos de tarjeta del mes. Son REFERENCIA:
+      // no reducen el saldo. El gasto real es el pago del resumen cuando vence.
+      totalTC: info.tcMonto || 0,
       saldo: ingreso - totalGastos - totalAhorro,
       cats: info.cats, cuentas: info.cuentas,
       gastos: info.gastos.filter(g => g.monto > 0),

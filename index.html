@@ -308,6 +308,16 @@ html[data-theme="dark"] .plan-mat.cursando { background: rgba(74,144,217,0.13); 
 html[data-theme="dark"] .plan-mat-name { color: #E8E5DE; }
 html[data-theme="dark"] .plan-mat-vh { background: rgba(255,255,255,0.08); color: #8E8C84; }
 html[data-theme="dark"] .plan-group-head { color: #8E8C84; border-bottom-color: rgba(255,255,255,0.1); }
+/* Barra de referencia tarjeta (aparece debajo de los KPIs del mes) */
+.tc-ref-bar { display: flex; align-items: center; gap: 7px; padding: 8px 16px; background: rgba(83,70,176,0.08); border-radius: 10px; margin: 0 0 2px; flex-wrap: wrap; }
+.tc-ref-icon { font-size: 13px; }
+.tc-ref-label { font-size: 12px; font-weight: 600; color: #5346B0; }
+.tc-ref-monto { font-size: 13px; font-weight: 700; color: #5346B0; font-variant-numeric: tabular-nums; margin-left: auto; }
+.tc-ref-hint { font-size: 11px; color: #79786F; }
+html[data-theme="dark"] .tc-ref-bar { background: rgba(83,70,176,0.15); }
+html[data-theme="dark"] .tc-ref-label { color: #9B8FE8; }
+html[data-theme="dark"] .tc-ref-monto { color: #9B8FE8; }
+html[data-theme="dark"] .tc-ref-hint { color: #6B6961; }
 /* Tarjeta de crédito — resumen / proyección */
 .tc-prox-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #79786F; font-weight: 600; }
 .tc-prox-total { font-size: 30px; font-weight: 700; color: #1F1F1E; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin: 2px 0; }
@@ -3740,6 +3750,13 @@ function render() {
           ${deltaSaldo}
         </div>
       </div>
+      ${mes.totalTC > 0 ? `
+      <div class="tc-ref-bar">
+        <span class="tc-ref-icon">💳</span>
+        <span class="tc-ref-label">Referencia tarjeta</span>
+        <span class="tc-ref-monto">${fmtMoney(mes.totalTC)}</span>
+        <span class="tc-ref-hint">· no resta del saldo · se paga al vencimiento</span>
+      </div>` : ''}
     </div>
 
     ${insights.length ? `
