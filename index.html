@@ -317,10 +317,32 @@ html[data-theme="dark"] .plan-group-head { color: #8E8C84; border-bottom-color: 
 .tc-line span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; color: #1F1F1E; }
 .tc-next { margin-top: 14px; padding-top: 12px; border-top: 1px solid #F2F1ED; }
 .tc-next-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #ABA9A0; font-weight: 600; margin-bottom: 8px; }
+/* Categoría con listado de items individuales (compras / cuotas / fijos) */
+.tc-cat { display: flex; flex-direction: column; gap: 5px; }
+.tc-cat + .tc-cat { margin-top: 4px; }
+.tc-cat-head { display: flex; justify-content: space-between; font-size: 13px; color: #4A4845; font-weight: 600; }
+.tc-cat-head span:last-child { font-variant-numeric: tabular-nums; color: #1F1F1E; }
+.tc-item-list { display: flex; flex-direction: column; gap: 3px; padding-left: 12px; border-left: 2px solid #F2F1ED; margin-left: 2px; }
+.tc-item { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #79786F; }
+.tc-item span:first-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tc-item span:last-child { font-variant-numeric: tabular-nums; color: #4A4845; flex-shrink: 0; }
+.tc-item-meta { color: #ABA9A0; font-size: 10.5px; font-variant-numeric: tabular-nums; margin-left: 4px; }
+/* Resúmenes siguientes: cada mes con su mini-desglose */
+.tc-next-row { display: flex; flex-direction: column; gap: 2px; padding: 6px 0; }
+.tc-next-row + .tc-next-row { border-top: 1px dashed #F2F1ED; }
+.tc-next-desg { font-size: 11px; color: #ABA9A0; }
 html[data-theme="dark"] .tc-prox-total { color: #E8E5DE; }
 html[data-theme="dark"] .tc-line { color: #BFBDB4; }
 html[data-theme="dark"] .tc-line span:last-child { color: #E8E5DE; }
 html[data-theme="dark"] .tc-next { border-top-color: rgba(255,255,255,0.07); }
+html[data-theme="dark"] .tc-cat-head { color: #BFBDB4; }
+html[data-theme="dark"] .tc-cat-head span:last-child { color: #E8E5DE; }
+html[data-theme="dark"] .tc-item-list { border-left-color: rgba(255,255,255,0.08); }
+html[data-theme="dark"] .tc-item { color: #8E8C84; }
+html[data-theme="dark"] .tc-item span:last-child { color: #BFBDB4; }
+html[data-theme="dark"] .tc-item-meta { color: #6B6961; }
+html[data-theme="dark"] .tc-next-row + .tc-next-row { border-top-color: rgba(255,255,255,0.06); }
+html[data-theme="dark"] .tc-next-desg { color: #6B6961; }
 .facu-estado {
   font-size: 11.5px; font-weight: 600; padding: 5px 12px; border-radius: 20px;
   border: none; cursor: pointer; font-family: inherit; white-space: nowrap;
@@ -1634,6 +1656,52 @@ function getCumulativeDaily(gastos, daysInMonth, lastDay) {
 
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwtWDa0E_5WK11J_f41zJS57CmD9KY0WAKb6MUq4Z8L4YV09WzPsTgAA7qQ8I0TkZ67fQ/exec';
 
+// ── AUTH POR TOKEN ─────────────────────────────────────────────
+// El token vive en localStorage, NUNCA en el código (que está en repo público).
+// Tiene que coincidir con el API_TOKEN que está en Script Properties del Apps
+// Script. Si no coincide, el backend rechaza la request.
+const API_TOKEN_KEY = 'misgastos_api_token';
+let _API_TOKEN = '';
+try { _API_TOKEN = localStorage.getItem(API_TOKEN_KEY) || ''; } catch(e) {}
+function setApiToken(t) {
+  _API_TOKEN = (t || '').trim();
+  try { localStorage.setItem(API_TOKEN_KEY, _API_TOKEN); } catch(e) {}
+}
+function clearApiToken() {
+  _API_TOKEN = '';
+  try { localStorage.removeItem(API_TOKEN_KEY); } catch(e) {}
+}
+// Agrega ?token=... o &token=... según corresponda a una URL ya armada
+function withAuth(url) {
+  if (!_API_TOKEN) return url;
+  const sep = url.indexOf('?') >= 0 ? '&' : '?';
+  return url + sep + 'token=' + encodeURIComponent(_API_TOKEN);
+}
+// Pide el token al usuario (al primer uso o cuando el backend lo rechaza).
+function promptApiToken(motivo) {
+  const msg = (motivo ? motivo + '\n\n' : '') +
+    'Pegá tu API_TOKEN (el que configuraste en Apps Script → Script Properties → API_TOKEN):';
+  const t = prompt(msg, '');
+  if (t && t.trim()) { setApiToken(t.trim()); return true; }
+  return false;
+}
+// Detecta error de auth en la respuesta del backend y dispara reingreso.
+function isAuthError(r) {
+  return r && r.ok === false && typeof r.error === 'string' &&
+    /token/i.test(r.error);
+}
+// Si la respuesta es un error de auth, pide el token y recarga la app.
+// Devuelve true cuando manejó el error (el caller debe abortar su flujo).
+function maybeHandleAuthError(r) {
+  if (!isAuthError(r)) return false;
+  if (promptApiToken('🔒 El token guardado no es válido o cambió.')) {
+    setTimeout(() => location.reload(), 200);
+  } else {
+    alert('Sin token válido la app no puede operar. Configurá tu API_TOKEN en Apps Script → Script Properties y reabrila.');
+  }
+  return true;
+}
+
 // Firma de los datos ignorando el timestamp, para detectar cambios reales
 function dataSig(d) {
   if (!d) return '';
@@ -1650,7 +1718,11 @@ function renderFromCache() {
     if (!cached || !cached.meses || !cached.meses.length) return false;
     _CACHE_SIG = dataSig(cached);
     _DATA = cached;
-    if (!_CURRENT_MONTH) _CURRENT_MONTH = cached.meses[0].key;
+    if (!_CURRENT_MONTH) {
+      const _hoyKey = new Date();
+      const _todayKey = _hoyKey.getFullYear() + '-' + String(_hoyKey.getMonth() + 1).padStart(2, '0');
+      _CURRENT_MONTH = cached.meses.find(m => m.key === _todayKey) ? _todayKey : cached.meses[0].key;
+    }
     render();
     return true;
   } catch (e) { _CACHE_SIG = null; return false; }
@@ -1671,8 +1743,12 @@ function load(forceFresh) {
     cleanup();
     onError(new Error('No se pudo cargar (timeout). Verificá que la URL de Apps Script esté bien.'));
   }, 25000);
-  window[cbName] = function(data) { clearTimeout(timeoutId); cleanup(); onData(data); };
-  script.src = APPS_SCRIPT_URL + '?callback=' + cbName + (forceFresh ? '&nocache=1' : '') + '&t=' + Date.now();
+  window[cbName] = function(data) {
+    clearTimeout(timeoutId); cleanup();
+    if (maybeHandleAuthError(data)) return;
+    onData(data);
+  };
+  script.src = withAuth(APPS_SCRIPT_URL + '?callback=' + cbName + (forceFresh ? '&nocache=1' : '') + '&t=' + Date.now());
   script.onerror = function() { clearTimeout(timeoutId); cleanup(); onError(new Error('Error al cargar. Revisá el deployment.')); };
   document.body.appendChild(script);
 }
@@ -3396,7 +3472,11 @@ function onData(data) {
   if (_CACHE_SIG === sig && _DATA) { _CACHE_SIG = null; clearRefreshing(); return; }
   _CACHE_SIG = null;
   _DATA = data;
-  if (!_CURRENT_MONTH) _CURRENT_MONTH = data.meses[0].key;
+  if (!_CURRENT_MONTH) {
+    const _hoyD = new Date();
+    const _todayKey = _hoyD.getFullYear() + '-' + String(_hoyD.getMonth() + 1).padStart(2, '0');
+    _CURRENT_MONTH = data.meses.find(m => m.key === _todayKey) ? _todayKey : data.meses[0].key;
+  }
   render();
 }
 
@@ -3420,6 +3500,8 @@ function renderTxRows(list) {
 }
 
 // Calcula los resúmenes de tarjeta proyectados (meses futuros con consumo de tarjeta).
+// Cada item incluye listas individuales de compras, cuotas y fijos para poder
+// desglosar la card y que Huevo vea EXACTAMENTE qué gastos están sumándose.
 function buildTarjetaResumen(data) {
   const hoy = new Date();
   const curKey = hoy.getFullYear() + '-' + String(hoy.getMonth() + 1).padStart(2, '0');
@@ -3436,14 +3518,21 @@ function buildTarjetaResumen(data) {
   (data.meses || []).forEach(m => {
     if (m.key <= curKey) return; // solo meses futuros (lo que se viene a pagar)
     let compras = 0, cuotas = 0, fijos = 0;
+    const comprasList = [], cuotasList = [], fijosList = [];
     (m.gastos || []).forEach(g => {
       if (g.cuenta !== 'Tarjeta de crédito') return;
-      if (g.esCuota) cuotas += g.monto;
-      else if (g.esFijo) fijos += g.monto;
-      else compras += g.monto;
+      if (g.esCuota) { cuotas += g.monto; cuotasList.push(g); }
+      else if (g.esFijo) { fijos += g.monto; fijosList.push(g); }
+      else { compras += g.monto; comprasList.push(g); }
     });
+    // Ordenar compras por fecha asc (las más viejas primero, para que se lea como una "línea de tiempo del ciclo")
+    comprasList.sort((a, b) => (a.fecha || 0) - (b.fecha || 0));
     const total = compras + cuotas + fijos;
-    if (total > 0) items.push({ key: m.key, año: m.año, mesNum: m.mesNum, compras, cuotas, fijos, total, venc: vencDe(m.key) });
+    if (total > 0) items.push({
+      key: m.key, año: m.año, mesNum: m.mesNum,
+      compras, cuotas, fijos, total, venc: vencDe(m.key),
+      comprasList, cuotasList, fijosList
+    });
   });
   items.sort((a, b) => a.key < b.key ? -1 : 1);
   return items;
@@ -3464,19 +3553,49 @@ function renderTarjetaCard(data) {
     const fmtVenc = prox.venc
       ? ('vence ' + prox.venc.getDate() + '/' + (prox.venc.getMonth() + 1))
       : ('vence en ' + MONTH_NAMES[prox.mesNum] + ' (fecha estimada)');
-    const linea = (lbl, val) => val > 0 ? `<div class="tc-line"><span>${lbl}</span><span>${fmtMoney(val)}</span></div>` : '';
+    const fechaCorta = (ms) => {
+      const d = new Date(ms);
+      return d.getDate() + '/' + (d.getMonth() + 1);
+    };
+    // Bloque "categoría con su listado expandido". Para compras mostramos fecha
+    // (es info útil: "ah, esto fue el 30/5"); para cuotas/fijos la fecha es
+    // sintética (día 15 del mes), así que la omitimos.
+    const categoriaConItems = (label, total, list, showFecha) => {
+      if (total <= 0) return '';
+      const itemsHtml = list.map(g => {
+        const fecha = showFecha && g.fecha ? ` <span class="tc-item-meta">${fechaCorta(g.fecha)}</span>` : '';
+        return `<div class="tc-item"><span>${g.desc || '(sin descripción)'}${fecha}</span><span>${fmtMoney(g.monto)}</span></div>`;
+      }).join('');
+      return `<div class="tc-cat">
+        <div class="tc-cat-head"><span>${label}</span><span>${fmtMoney(total)}</span></div>
+        <div class="tc-item-list">${itemsHtml}</div>
+      </div>`;
+    };
+    // Desglose mini para los meses siguientes (sin lista, solo por categoría)
+    const desgloseMini = (it) => {
+      const parts = [];
+      if (it.compras > 0) parts.push('compras ' + fmtMoney(it.compras));
+      if (it.cuotas > 0) parts.push('cuotas ' + fmtMoney(it.cuotas));
+      if (it.fijos > 0) parts.push('fijos ' + fmtMoney(it.fijos));
+      return parts.join(' · ');
+    };
     body = `
       <div class="tc-prox-label">Próximo resumen · ${mesLabel(prox.año, prox.mesNum)}</div>
       <div class="tc-prox-total">${fmtMoney(prox.total)}</div>
       <div class="tc-prox-venc">${fmtVenc}</div>
       <div class="tc-breakdown">
-        ${linea('Compras del ciclo', prox.compras)}
-        ${linea('Cuotas', prox.cuotas)}
-        ${linea('Fijos de tarjeta', prox.fijos)}
+        ${categoriaConItems('Compras del ciclo', prox.compras, prox.comprasList, true)}
+        ${categoriaConItems('Cuotas', prox.cuotas, prox.cuotasList, false)}
+        ${categoriaConItems('Fijos de tarjeta', prox.fijos, prox.fijosList, false)}
       </div>
       ${items.length > 1 ? `<div class="tc-next">
         <div class="tc-next-label">Resúmenes siguientes</div>
-        ${items.slice(1, 4).map(it => `<div class="tc-line"><span>${mesLabel(it.año, it.mesNum)}</span><span>${fmtMoney(it.total)}</span></div>`).join('')}
+        ${items.slice(1, 4).map(it => `
+          <div class="tc-next-row">
+            <div class="tc-line"><span>${mesLabel(it.año, it.mesNum)}</span><span>${fmtMoney(it.total)}</span></div>
+            <div class="tc-next-desg">${desgloseMini(it)}</div>
+          </div>
+        `).join('')}
       </div>` : ''}`;
   }
   let meta = '';
@@ -3591,7 +3710,7 @@ function render() {
       <div class="header">
         <div>
           <div class="title">${esc(monthLabel)}</div>
-          <div class="subtitle">Finanzas personales · Agustín Devoto</div>
+          <div class="subtitle">Finanzas personales</div>
         </div>
         <div class="day-info">${isCurrentMonth ? 'Día ' + dayOfMonth + ' de ' + daysInMonth + ' · ' + daysRemaining + ' restantes' : 'Mes cerrado'}</div>
       </div>
@@ -4404,13 +4523,14 @@ function submitCiclo() {
   const timeoutId = setTimeout(() => { cleanup(); setModalStatus('Tiempo agotado. Probá de nuevo.', 'error'); }, 15000);
   window[cbName] = function(r) {
     clearTimeout(timeoutId); cleanup();
+    if (maybeHandleAuthError(r)) return;
     if (r && r.ok) {
       setModalStatus('✓ Ciclo guardado', 'success');
       setTimeout(() => { document.getElementById('modal-overlay').classList.remove('show'); load(); }, 800);
     } else { setModalStatus('Error: ' + ((r && r.error) || 'desconocido'), 'error'); }
   };
-  script.src = APPS_SCRIPT_URL + '?action=add_ciclo&callback=' + cbName +
-    '&cierre=' + encodeURIComponent(cierre) + '&vencimiento=' + encodeURIComponent(venc) + '&t=' + Date.now();
+  script.src = withAuth(APPS_SCRIPT_URL + '?action=add_ciclo&callback=' + cbName +
+    '&cierre=' + encodeURIComponent(cierre) + '&vencimiento=' + encodeURIComponent(venc) + '&t=' + Date.now());
   script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.', 'error'); };
   document.body.appendChild(script);
 }
@@ -4435,6 +4555,7 @@ function submitCuota() {
   const timeoutId = setTimeout(() => { cleanup(); setModalStatus('Tiempo agotado. Probá de nuevo.', 'error'); }, 20000);
   window[cbName] = function(r) {
     clearTimeout(timeoutId); cleanup();
+    if (maybeHandleAuthError(r)) return;
     if (r && r.ok) {
       setModalStatus('✓ Cuotas agregadas', 'success');
       ['cuo-desc','cuo-total','cuo-n'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
@@ -4442,10 +4563,10 @@ function submitCuota() {
       setTimeout(() => { document.getElementById('modal-overlay').classList.remove('show'); load(); }, 800);
     } else { setModalStatus('Error: ' + ((r && r.error) || 'desconocido'), 'error'); }
   };
-  script.src = APPS_SCRIPT_URL + '?action=add_cuota&callback=' + cbName +
+  script.src = withAuth(APPS_SCRIPT_URL + '?action=add_cuota&callback=' + cbName +
     '&desc=' + encodeURIComponent(desc) + '&montoTotal=' + encodeURIComponent(total) +
     '&nCuotas=' + encodeURIComponent(n) + '&fechaCompra=' + encodeURIComponent(fecha) +
-    '&categoria=' + encodeURIComponent(cat) + '&t=' + Date.now();
+    '&categoria=' + encodeURIComponent(cat) + '&t=' + Date.now());
   script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.', 'error'); };
   document.body.appendChild(script);
 }
@@ -4470,6 +4591,7 @@ function submitEntry(tipo, fields) {
   const timeoutId = setTimeout(() => { cleanup(); setModalStatus('Tiempo agotado. Probá de nuevo.','error'); }, 15000);
   window[cbName] = function(response) {
     clearTimeout(timeoutId); cleanup();
+    if (maybeHandleAuthError(response)) return;
     if (response && response.ok) {
       setModalStatus('✓ Cargado correctamente','success');
       if (tipo === 'gasto') { document.getElementById('g-monto').value=''; document.getElementById('g-descripcion').value=''; document.getElementById('g-categoria').value=''; document.getElementById('g-cuenta').value=''; }
@@ -4479,7 +4601,7 @@ function submitEntry(tipo, fields) {
   };
   let url = APPS_SCRIPT_URL + '?action=add_' + tipo + '&callback=' + cbName + '&t=' + Date.now();
   for (const k in fields) { if (fields[k] != null) url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]); }
-  script.src = url;
+  script.src = withAuth(url);
   script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.','error'); };
   document.body.appendChild(script);
 }
@@ -4594,6 +4716,7 @@ function askAssistant(question) {
   const timeoutId = setTimeout(() => { cleanup(); showAnswer('Tiempo agotado. Probá de nuevo.'); }, 30000);
   window[cbName] = function(response) {
     clearTimeout(timeoutId); cleanup();
+    if (maybeHandleAuthError(response)) return;
     const answer = (response && response.answer) ? response.answer : 'Sin respuesta.';
     showAnswer(answer);
     _speakChat(answer);
@@ -4602,7 +4725,7 @@ function askAssistant(question) {
     if (_CHAT_HISTORY.length > CHAT_HISTORY_LIMIT) _CHAT_HISTORY = _CHAT_HISTORY.slice(-CHAT_HISTORY_LIMIT);
   };
   const historyToSend = _CHAT_HISTORY.slice(-CHAT_HISTORY_LIMIT);
-  script.src = APPS_SCRIPT_URL + '?action=ask&callback=' + cbName + '&q=' + encodeURIComponent(question) + '&history=' + encodeURIComponent(JSON.stringify(historyToSend)) + '&t=' + Date.now();
+  script.src = withAuth(APPS_SCRIPT_URL + '?action=ask&callback=' + cbName + '&q=' + encodeURIComponent(question) + '&history=' + encodeURIComponent(JSON.stringify(historyToSend)) + '&t=' + Date.now());
   script.onerror = function() { clearTimeout(timeoutId); cleanup(); showAnswer('Error al consultar al asistente.'); };
   document.body.appendChild(script);
 }
