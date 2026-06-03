@@ -322,6 +322,17 @@ html[data-theme="dark"] .tc-ref-hint { color: #6B6961; }
 .tc-prox-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: #79786F; font-weight: 600; }
 .tc-prox-total { font-size: 30px; font-weight: 700; color: #1F1F1E; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin: 2px 0; }
 .tc-prox-venc { font-size: 12.5px; color: #C18E48; margin-bottom: 14px; }
+/* Aviso de pago próximo */
+.tc-aviso { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; flex-wrap: wrap; }
+.tc-aviso-texto { font-size: 13px; font-weight: 600; color: #4A4845; }
+.tc-aviso.urgente .tc-aviso-texto { color: #A32D2D; }
+.tc-aviso-chip { font-size: 11px; font-weight: 600; padding: 2px 9px; border-radius: 20px; background: #F2F1ED; color: #79786F; }
+.tc-aviso-chip.urgente { background: rgba(163,45,45,0.1); color: #A32D2D; }
+html[data-theme="dark"] .tc-prox-total { color: #E8E5DE; }
+html[data-theme="dark"] .tc-aviso-texto { color: #BFBDB4; }
+html[data-theme="dark"] .tc-aviso.urgente .tc-aviso-texto { color: #FCA5A5; }
+html[data-theme="dark"] .tc-aviso-chip { background: rgba(255,255,255,0.08); color: #8E8C84; }
+html[data-theme="dark"] .tc-aviso-chip.urgente { background: rgba(252,165,165,0.1); color: #FCA5A5; }
 .tc-breakdown { display: flex; flex-direction: column; gap: 7px; }
 .tc-line { display: flex; justify-content: space-between; font-size: 13px; color: #4A4845; }
 .tc-line span:last-child { font-variant-numeric: tabular-nums; font-weight: 500; color: #1F1F1E; }
@@ -3587,23 +3598,38 @@ function renderTarjetaCard(data) {
       if (it.fijos > 0) parts.push('fijos ' + fmtMoney(it.fijos));
       return parts.join(' · ');
     };
+    // Días hasta el vencimiento
+    const diasAlVenc = prox.venc
+      ? Math.ceil((prox.venc.getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    const vencTexto = prox.venc
+      ? 'el ' + prox.venc.getDate() + '/' + (prox.venc.getMonth() + 1)
+      : 'en ' + MONTH_NAMES[prox.mesNum] + ' (fecha estimada)';
+    const urgencia = diasAlVenc !== null && diasAlVenc <= 5 && diasAlVenc >= 0;
+    const vencChip = diasAlVenc !== null
+      ? (diasAlVenc === 0 ? '¡Vence hoy!' : diasAlVenc < 0 ? 'Venció hace ' + Math.abs(diasAlVenc) + ' días' : 'en ' + diasAlVenc + ' día' + (diasAlVenc === 1 ? '' : 's'))
+      : '';
     body = `
-      <div class="tc-prox-label">Próximo resumen · ${mesLabel(prox.año, prox.mesNum)}</div>
+      <div class="tc-aviso${urgencia ? ' urgente' : ''}">
+        <span class="tc-aviso-texto">Tenés que pagar ${vencTexto}</span>
+        ${vencChip ? `<span class="tc-aviso-chip${urgencia ? ' urgente' : ''}">${vencChip}</span>` : ''}
+      </div>
       <div class="tc-prox-total">${fmtMoney(prox.total)}</div>
-      <div class="tc-prox-venc">${fmtVenc}</div>
-      <div class="tc-breakdown">
+      <div class="tc-breakdown" style="margin-top:12px;">
         ${categoriaConItems('Compras del ciclo', prox.compras, prox.comprasList, true)}
         ${categoriaConItems('Cuotas', prox.cuotas, prox.cuotasList, false)}
         ${categoriaConItems('Fijos de tarjeta', prox.fijos, prox.fijosList, false)}
       </div>
       ${items.length > 1 ? `<div class="tc-next">
-        <div class="tc-next-label">Resúmenes siguientes</div>
-        ${items.slice(1, 4).map(it => `
+        <div class="tc-next-label">Próximos resúmenes</div>
+        ${items.slice(1, 4).map(it => {
+          const itVenc = it.venc ? ('el ' + it.venc.getDate() + '/' + (it.venc.getMonth() + 1)) : MONTH_NAMES[it.mesNum];
+          return `
           <div class="tc-next-row">
-            <div class="tc-line"><span>${mesLabel(it.año, it.mesNum)}</span><span>${fmtMoney(it.total)}</span></div>
+            <div class="tc-line"><span>Pagar ${itVenc}</span><span>${fmtMoney(it.total)}</span></div>
             <div class="tc-next-desg">${desgloseMini(it)}</div>
-          </div>
-        `).join('')}
+          </div>`;
+        }).join('')}
       </div>` : ''}`;
   }
   let meta = '';
