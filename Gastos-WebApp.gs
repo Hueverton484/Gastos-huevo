@@ -782,12 +782,16 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
   const meses = data.meses || [];
   if (!meses.length) return 'No hay gastos cargados todavía.';
 
-  const m = meses[0]; // mes más reciente
   const NOMBRES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  const today = new Date();
+  const todayKey = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0');
+  // meses[0] puede ser un mes FUTURO por proyecciones de cuotas — buscar el mes real de hoy
+  const m = meses.find(mes => mes.key === todayKey)
+          || meses.find(mes => mes.key < todayKey)
+          || meses[0];
   const monthName = NOMBRES[m.mesNum];
   const daysInMonth = new Date(m.año, m.mesNum + 1, 0).getDate();
-  const today = new Date();
-  const isCurrent = today.getFullYear() === m.año && today.getMonth() === m.mesNum;
+  const isCurrent = m.key === todayKey;
   const dayOfMonth = isCurrent ? today.getDate() : daysInMonth;
   const daysRemaining = Math.max(0, daysInMonth - dayOfMonth);
   const dailyFromSaldo = daysRemaining > 0 ? Math.round(m.saldo / daysRemaining) : 0;
@@ -798,9 +802,43 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
   const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR');
 
   // Bloque comparativo: ritmo vs promedio histórico + por categoría con delta.
-  // Esto reemplaza al "Gastos por categoría" + "Promedios históricos" sueltos,
-  // que obligaban al modelo a hacer la cuenta de cabeza (y la hacía mal).
-  const ritmoBloque = _construirRitmoMes(meses, m, dayOfMonth, daysInMonth, isCurrent);
+  // Pasamos solo desde el mes actual hacia atrás; los meses futuros (proyecciones
+  // de cuotas) no deben entrar en el historial de comparación.
+  const mIdx = meses.findIndex(mes => mes.key === m.key);
+  const mesesToRitmo = mIdx >= 0 ? meses.slice(mIdx) : meses;
+  const ritmoBloque = _construirRitmoMes(mesesToRitmo, m, dayOfMonth, daysInMonth, isCurrent);
+
+  // ── Transacciones individuales del mes (gastos concretos, no cuotas ni fijos) ──
+  const txNoTC = (m.gastos || []).filter(g => !g.esCuota && !g.esFijo && !g.esTarjeta && g.monto > 0)
+    .sort((a, b) => b.fecha - a.fecha);
+  const txTC = (m.gastos || []).filter(g => !g.esCuota && !g.esFijo && g.esTarjeta && g.monto > 0)
+    .sort((a, b) => b.fecha - a.fecha);
+  let transaccionesTexto = '';
+  if (txNoTC.length) {
+    const lines = txNoTC.map(g => {
+      const d = new Date(g.fecha);
+      return '  • ' + d.getDate() + '/' + (d.getMonth()+1) + ' · ' + g.desc + ' [' + g.cat + ']: ' + fmt(g.monto);
+    }).join('\n');
+    transaccionesTexto = 'Gastos individuales del mes (' + txNoTC.length + '):\n' + lines;
+  } else {
+    transaccionesTexto = 'Gastos individuales del mes: ninguno cargado aún.';
+  }
+  if (txTC.length) {
+    const lines = txTC.map(g => {
+      const d = new Date(g.fecha);
+      return '  • ' + d.getDate() + '/' + (d.getMonth()+1) + ' · ' + g.desc + ' [' + g.cat + ']: ' + fmt(g.monto) + ' (referencia TC)';
+    }).join('\n');
+    transaccionesTexto += '\nCompras con tarjeta del ciclo en curso (' + txTC.length + ', son referencia — no restan del saldo):\n' + lines;
+  }
+
+  // ── Gastos fijos activos no-TC (compromisos recurrentes que sí restan del saldo) ──
+  let fijosTexto = 'Gastos fijos mensuales (no tarjeta): ninguno cargado.';
+  const fijosNoTC = (data.gastosFijosActivos || []).filter(f => !f.esTarjeta && f.monto > 0);
+  if (fijosNoTC.length) {
+    const totalFijosNoTC = fijosNoTC.reduce((s, f) => s + f.monto, 0);
+    const fLines = fijosNoTC.map(f => '  • ' + f.desc + ' [' + f.cat + ']: ' + fmt(f.monto) + '/mes').join('\n');
+    fijosTexto = 'Gastos fijos mensuales no-tarjeta (compromisos recurrentes que SÍ restan del saldo · total: ' + fmt(totalFijosNoTC) + '):\n' + fLines;
+  }
 
   let metas = 'Sin metas activas.';
   if (data.metas && data.metas.length) {
@@ -850,6 +888,8 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
     'Disponible por día solo con saldo del mes: ' + fmt(dailyFromSaldo) + '\n' +
     'Disponible por día con buffer incluido: ' + fmt(dailyFromTotal) + '\n\n' +
     ritmoBloque + '\n\n' +
+    transaccionesTexto + '\n\n' +
+    fijosTexto + '\n\n' +
     'Metas de ahorro:\n' + metas + '\n\n' +
     'Cuotas vigentes:\n' + cuotas + '\n\n' +
     _construirContextoTarjeta(data) + '\n\n' +
@@ -1108,6 +1148,14 @@ function getDashboardData() {
     meses: mesesData, metas: metas, cuotas: cuotasActivas,
     ciclos: ciclos,
     presupuesto: PRESUPUESTO_MENSUAL, categorias: CATS,
+    // Gastos fijos activos, para que el contexto de Gemini incluya compromisos recurrentes
+    gastosFijosActivos: (gastosFijos || [])
+      .filter(f => String(f[4] || '').trim().toUpperCase() === 'SI' && parseFloat(f[1]) > 0)
+      .map(f => ({
+        desc: String(f[0] || ''), monto: parseFloat(f[1]) || 0,
+        cat: String(f[2] || 'Otro'), cuenta: String(f[3] || ''),
+        esTarjeta: String(f[3] || '').trim() === 'Tarjeta de crédito'
+      })),
     actualizado: new Date().getTime()
   };
 
