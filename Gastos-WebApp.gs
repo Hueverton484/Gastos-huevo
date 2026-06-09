@@ -467,6 +467,8 @@ function askGemini(question, history) {
     '• NO confundas el "saldo del mes" con el "total disponible". Si Huevo pregunta "¿me alcanza?", la respuesta usa el total. Si pregunta "¿cómo voy este mes?", usás el saldo del mes (es la foto del flujo).\n\n' +
 
     'USO DE COMPARACIONES (esto es lo que separa una respuesta criteriosa de una vacía):\n' +
+    '• TODOS los números del CONTEXTO ya están calculados por el sistema (tendencias, proyecciones, %, promedios, colchón). Confiá en ellos y citalos — NO los recalcules de cabeza, porque te equivocás. Tu trabajo es interpretarlos y tomar posición, no rehacer la aritmética.\n' +
+    '• El bloque "TRAYECTORIA Y SALUD FINANCIERA" es tu MARCO DE FONDO para cualquier opinión sobre capacidad de gasto. Antes de decir "sí" o "no" a algo, ubicalo en la película grande: ¿el gasto viene subiendo o bajando mes a mes?, ¿qué tasa de ahorro mantiene?, ¿tiene colchón o vive al límite? Un mismo gasto se juzga distinto según si Huevo tiene 3 meses de colchón o vive al día. Si la trayectoria es relevante para la pregunta, hacela explícita ("venís 3 meses subiendo el gasto, este no es el momento de sumar otro fijo").\n' +
     '• ANTES de opinar sobre la situación financiera o sobre si Huevo puede/debe hacer un gasto, mirá el bloque "RITMO DEL MES vs TU PROMEDIO HISTÓRICO". Si el mes viene apreciablemente distinto al promedio (>15% para arriba o para abajo), eso ENTRA en tu respuesta. No es opcional.\n' +
     '• Cuando el mes viene MÁS AUSTERO de lo habitual (ritmo diario por debajo del promedio, proyección por debajo, categorías importantes en negativo), eso da MARGEN REAL que un mes promedio no daría. Si en un mes normal le dirías "no" a un gasto, pero este mes viene 30% más austero, eso puede cambiar el veredicto — y tu respuesta tiene que ser explícita sobre esa lógica ("normalmente te frenaría, pero venís X% por debajo del promedio así que te alcanza el aire").\n' +
     '• Cuando el mes viene MÁS DERROCHADOR (ritmo por arriba, proyección por arriba, categorías que se dispararon), sé MÁS estricto que de costumbre. El "ya venís arriba" es argumento de peso.\n' +
@@ -778,6 +780,63 @@ function _construirRitmoMes(meses, m, dayOfMonth, daysInMonth, isCurrent) {
     (catLines || '  (sin datos)');
 }
 
+// Bloque de TRAYECTORIA: lo que más le falta a Flash para tener criterio.
+// Todo pre-calculado en el servidor (Flash es malo haciendo cuentas, bueno
+// usando conclusiones). Le da tendencia mes a mes, tasa de ahorro real y
+// cuántos meses de colchón tiene — el marco para juzgar capacidad de gasto.
+function _construirTendenciaYSalud(meses, mActual, dayOfMonth, daysInMonth) {
+  const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR');
+  const NOMBRES = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+  const idx = meses.findIndex(x => x.key === mActual.key);
+  const previos = (idx >= 0 ? meses.slice(idx + 1) : meses).filter(x => x.totalGastos > 0 || x.ingreso > 0);
+  if (!previos.length) {
+    return 'TRAYECTORIA Y SALUD FINANCIERA: todavía no hay meses cerrados para analizar tendencia.';
+  }
+  // Hasta 4 meses cerrados más recientes, en orden cronológico (viejo → nuevo).
+  const recientes = previos.slice(0, 4).reverse();
+
+  // 1) Tendencia de gasto mes a mes
+  const serieGasto = recientes.map(x => NOMBRES[x.mesNum] + ' ' + fmt(x.totalGastos)).join(' · ');
+  let tendTxt = '';
+  if (recientes.length >= 2) {
+    const ultimo = recientes[recientes.length - 1].totalGastos;
+    const prevs = recientes.slice(0, -1);
+    const promPrev = prevs.reduce((s, x) => s + x.totalGastos, 0) / prevs.length;
+    if (promPrev > 0) {
+      const pct = Math.round((ultimo / promPrev - 1) * 100);
+      const dir = pct > 8 ? 'SUBIENDO' : pct < -8 ? 'BAJANDO' : 'estable';
+      tendTxt = ' → tendencia ' + dir + ' (' + (pct >= 0 ? '+' : '') + pct + '% el último mes cerrado vs promedio de los previos)';
+    }
+  }
+  // Proyección del mes en curso a fin de mes
+  const projActual = dayOfMonth > 0 ? Math.round(mActual.totalGastos / dayOfMonth * daysInMonth) : mActual.totalGastos;
+
+  // 2) Tasa de ahorro real (y cuánto queda libre) sobre meses con ingreso
+  const conIngreso = previos.filter(x => x.ingreso > 0);
+  let ahorroTxt = 'sin ingresos cerrados para calcular tasa de ahorro.';
+  if (conIngreso.length) {
+    const tasaAhorro = conIngreso.reduce((s, x) => s + (x.totalAhorro / x.ingreso), 0) / conIngreso.length;
+    const tasaLibre = conIngreso.reduce((s, x) => s + (x.saldo / x.ingreso), 0) / conIngreso.length;
+    ahorroTxt = 'ahorrás en promedio el ' + Math.round(tasaAhorro * 100) + '% de tu ingreso; te queda libre (después de gastos, sin contar ahorro) el ' + Math.round(tasaLibre * 100) + '%.';
+  }
+
+  // 3) Colchón: cuántos meses de gasto cubre el buffer acumulado
+  const gastoProm = previos.reduce((s, x) => s + x.totalGastos, 0) / previos.length;
+  const buffer = mActual.bufferEntrante || 0;
+  let colchonTxt = '';
+  if (gastoProm > 0) {
+    const mesesColchon = buffer / gastoProm;
+    const clasif = mesesColchon >= 2 ? 'colchón SANO' : mesesColchon >= 0.75 ? 'colchón JUSTO' : mesesColchon > 0 ? 'colchón AL LÍMITE' : 'SIN colchón (vivís mes a mes)';
+    colchonTxt = 'tu buffer (' + fmt(buffer) + ') cubre ~' + mesesColchon.toFixed(1) + ' meses de gasto promedio (' + fmt(gastoProm) + '/mes) → ' + clasif + '.';
+  }
+
+  return 'TRAYECTORIA Y SALUD FINANCIERA (ya calculado — es tu marco para juzgar capacidad de gasto, no recalcules):\n' +
+    '• Gasto de meses cerrados: ' + serieGasto + tendTxt + '\n' +
+    '• Mes en curso proyectado a fin de mes: ' + fmt(projActual) + ' (llevás ' + fmt(mActual.totalGastos) + ' al día ' + dayOfMonth + ' de ' + daysInMonth + ').\n' +
+    '• Tasa de ahorro: ' + ahorroTxt + '\n' +
+    (colchonTxt ? '• Colchón: ' + colchonTxt : '');
+}
+
 function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) {
   const meses = data.meses || [];
   if (!meses.length) return 'No hay gastos cargados todavía.';
@@ -807,6 +866,9 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
   const mIdx = meses.findIndex(mes => mes.key === m.key);
   const mesesToRitmo = mIdx >= 0 ? meses.slice(mIdx) : meses;
   const ritmoBloque = _construirRitmoMes(mesesToRitmo, m, dayOfMonth, daysInMonth, isCurrent);
+
+  // Trayectoria histórica (tendencia, tasa de ahorro, colchón) — el marco de criterio.
+  const tendenciaBloque = _construirTendenciaYSalud(meses, m, dayOfMonth, daysInMonth);
 
   // ── Transacciones individuales del mes (gastos concretos, no cuotas ni fijos) ──
   const txNoTC = (m.gastos || []).filter(g => !g.esCuota && !g.esFijo && !g.esTarjeta && g.monto > 0)
@@ -887,6 +949,7 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
     'TOTAL DISPONIBLE en cuenta (saldo del mes + buffer): ' + fmt(totalDisponible) + '\n' +
     'Disponible por día solo con saldo del mes: ' + fmt(dailyFromSaldo) + '\n' +
     'Disponible por día con buffer incluido: ' + fmt(dailyFromTotal) + '\n\n' +
+    tendenciaBloque + '\n\n' +
     ritmoBloque + '\n\n' +
     transaccionesTexto + '\n\n' +
     fijosTexto + '\n\n' +
