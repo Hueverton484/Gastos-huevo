@@ -70,6 +70,14 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'add_cuota' && e.parameter.callback) {
     return _jsonpResponse(e.parameter.callback, _agregarCuota(e.parameter));
   }
+  // Modo "delete_movimiento": borrar un gasto o ingreso (fila del Sheet)
+  if (e && e.parameter && e.parameter.action === 'delete_movimiento' && e.parameter.callback) {
+    return _jsonpResponse(e.parameter.callback, _borrarMovimiento(e.parameter));
+  }
+  // Modo "edit_movimiento": editar un gasto o ingreso existente
+  if (e && e.parameter && e.parameter.action === 'edit_movimiento' && e.parameter.callback) {
+    return _jsonpResponse(e.parameter.callback, _editarMovimiento(e.parameter));
+  }
 
   // Modo "ask": consulta al asistente financiero (Gemini)
   // Llamada: ?action=ask&q=texto-pregunta&history=JSON&callback=funcName
@@ -233,6 +241,107 @@ function _agregarIngreso(p) {
   } catch (err) {
     return { ok: false, error: err.message };
   }
+}
+
+// ── BORRAR / EDITAR MOVIMIENTOS (desde la PWA) ──────────────
+// La PWA identifica cada fila por su número de fila en el Sheet (campo "row"
+// que viaja en getDashboardData). Antes de tocar la fila verificamos que el
+// monto coincida con el que la app tenía — si alguien movió filas en el medio,
+// devolvemos error en vez de borrar/editar la fila equivocada.
+
+function _hojaMovimiento(tipo) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return tipo === 'ingreso'
+    ? ss.getSheetByName('Respuestas de formulario 2')
+    : ss.getSheetByName('Respuestas de formulario 1');
+}
+
+function _borrarMovimiento(p) {
+  try {
+    const tipo = (p.tipo === 'ingreso') ? 'ingreso' : 'gasto';
+    const row = parseInt(p.row);
+    const monto = parseFloat(p.monto);
+    if (isNaN(row) || row < 2) return { ok: false, error: 'Fila inválida' };
+    const sheet = _hojaMovimiento(tipo);
+    if (!sheet) return { ok: false, error: 'Hoja no existe' };
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      if (_yaProcesado(p.reqId)) return { ok: true, dedup: true };
+      if (row > sheet.getLastRow()) return { ok: false, error: 'La fila ya no existe. Actualizá la app y probá de nuevo.' };
+      const vals = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+      const montoEnFila = parseFloat(tipo === 'gasto' ? vals[4] : vals[3]);
+      if (!isNaN(monto) && Math.abs(montoEnFila - monto) > 0.01) {
+        return { ok: false, error: 'Los datos cambiaron desde que abriste la app. Actualizá y probá de nuevo.' };
+      }
+      sheet.deleteRow(row);
+      _marcarProcesado(p.reqId);
+      _bumpDataVersion();
+    } finally {
+      lock.releaseLock();
+    }
+    _programarRegeneracion();
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
+}
+
+function _editarMovimiento(p) {
+  try {
+    const tipo = (p.tipo === 'ingreso') ? 'ingreso' : 'gasto';
+    const row = parseInt(p.row);
+    const origMonto = parseFloat(p.origMonto);
+    const fecha = _parseFechaInput(p.fecha);
+    const monto = parseFloat(p.monto);
+    const desc = (p.desc || '').toString().trim();
+    if (isNaN(row) || row < 2) return { ok: false, error: 'Fila inválida' };
+    if (!fecha) return { ok: false, error: 'Fecha inválida' };
+    if (isNaN(monto) || monto <= 0) return { ok: false, error: 'Monto inválido' };
+    const sheet = _hojaMovimiento(tipo);
+    if (!sheet) return { ok: false, error: 'Hoja no existe' };
+
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      if (_yaProcesado(p.reqId)) return { ok: true, dedup: true };
+      if (row > sheet.getLastRow()) return { ok: false, error: 'La fila ya no existe. Actualizá la app y probá de nuevo.' };
+      const vals = sheet.getRange(row, 1, 1, sheet.getLastColumn()).getValues()[0];
+      const montoEnFila = parseFloat(tipo === 'gasto' ? vals[4] : vals[3]);
+      if (!isNaN(origMonto) && Math.abs(montoEnFila - origMonto) > 0.01) {
+        return { ok: false, error: 'Los datos cambiaron desde que abriste la app. Actualizá y probá de nuevo.' };
+      }
+      if (tipo === 'gasto') {
+        const cat = (p.cat || '').toString().trim();
+        if (!cat) return { ok: false, error: 'Falta categoría' };
+        const cuenta = (p.cuenta || '').toString().trim();
+        if (sheet.getLastColumn() >= 6) {
+          sheet.getRange(row, 2, 1, 5).setValues([[fecha, cat, desc, monto, cuenta]]);
+        } else {
+          sheet.getRange(row, 2, 1, 4).setValues([[fecha, cat, desc, monto]]);
+        }
+      } else {
+        sheet.getRange(row, 2, 1, 3).setValues([[fecha, desc, monto]]);
+      }
+      _marcarProcesado(p.reqId);
+      _bumpDataVersion();
+    } finally {
+      lock.releaseLock();
+    }
+    _programarRegeneracion();
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
+}
+
+// Versión de datos: se incrementa en ediciones/borrados (mutaciones que no
+// cambian la cantidad de filas, o que la cambian de forma que podría chocar
+// con una entrada vieja de caché). Forma parte de la clave de caché del
+// dashboard, así cualquier mutación invalida la caché al instante.
+function _bumpDataVersion() {
+  try {
+    const props = PropertiesService.getScriptProperties();
+    const v = parseInt(props.getProperty('DATA_VERSION') || '0', 10) + 1;
+    props.setProperty('DATA_VERSION', String(v));
+  } catch (e) {}
 }
 
 // ── CICLOS DE TARJETA (cierre/vencimiento) ──────────────────
@@ -1042,10 +1151,12 @@ function getDashboardData() {
   const shFijos    = ss.getSheetByName("Gastos Fijos");
   const shCiclos   = ss.getSheetByName("Ciclos TC");
 
-  // CACHÉ: la clave depende de la cantidad de filas. Cuando agregás un gasto,
-  // ingreso, meta, cuota o ciclo, la clave cambia y se recalcula solo.
+  // CACHÉ: la clave depende de la cantidad de filas y de DATA_VERSION (que se
+  // incrementa al editar/borrar). Cualquier mutación invalida la caché sola.
   const cache = CacheService.getScriptCache();
-  const cacheKey = 'dash_v5_' +
+  let _dataVer = '0';
+  try { _dataVer = PropertiesService.getScriptProperties().getProperty('DATA_VERSION') || '0'; } catch (e) {}
+  const cacheKey = 'dash_v6_' + _dataVer + '_' +
     (shGastos   ? shGastos.getLastRow()   : 0) + '_' +
     (shIngresos ? shIngresos.getLastRow() : 0) + '_' +
     (shCuotas   ? shCuotas.getLastRow()   : 0) + '_' +
@@ -1071,7 +1182,9 @@ function getDashboardData() {
 
   const porMes = {}, ingresosPorMes = {};
 
-  for (const fila of datosGastos) {
+  for (let _gi = 0; _gi < datosGastos.length; _gi++) {
+    const fila = datosGastos[_gi];
+    const filaSheet = _gi + 2; // +2: el slice(1) saltó el header y el Sheet es 1-based
     const fecha = new Date(fila[1]);
     if (isNaN(fecha.getTime())) continue;
     const cat = fila[2], monto = parseFloat(fila[4]);
@@ -1095,7 +1208,7 @@ function getDashboardData() {
       gastos: [], cats: {}, cuentas: {}, dias: {}
     };
     const info = porMes[k];
-    info.gastos.push({ fecha: fecha.getTime(), desc, cat, monto, cuenta, esTarjeta, reasignado });
+    info.gastos.push({ fecha: fecha.getTime(), desc, cat, monto, cuenta, esTarjeta, reasignado, row: filaSheet });
     // Las compras con cuenta TC son REFERENCIA: aparecen en el listado y en la
     // card de tarjeta, pero NO reducen el saldo ni entran en las categorías.
     // El gasto real es el pago del resumen, que sí se registra como gasto normal.
@@ -1110,7 +1223,8 @@ function getDashboardData() {
   }
 
   const ingresosDetalle = {};
-  for (const fila of datosIngresos) {
+  for (let _ii = 0; _ii < datosIngresos.length; _ii++) {
+    const fila = datosIngresos[_ii];
     const fecha = new Date(fila[1]);
     if (isNaN(fecha.getTime())) continue;
     const k = fecha.getFullYear() + "-" + String(fecha.getMonth() + 1).padStart(2, '0');
@@ -1119,7 +1233,7 @@ function getDashboardData() {
     if (isNaN(monto)) continue;
     ingresosPorMes[k] = (ingresosPorMes[k] || 0) + monto;
     if (!ingresosDetalle[k]) ingresosDetalle[k] = [];
-    ingresosDetalle[k].push({ fecha: fecha.getTime(), desc, monto });
+    ingresosDetalle[k].push({ fecha: fecha.getTime(), desc, monto, row: _ii + 2 });
   }
 
   // Asegurar que existan los meses FUTUROS que toca cada cuota, aunque no
@@ -1296,6 +1410,105 @@ function getDashboardData() {
   try { _cachePutLarge(cache, cacheKey, JSON.stringify(result), 300); } catch (e) {}
 
   return result;
+}
+
+// ============================================================
+// RECORDATORIO DE TARJETA POR TELEGRAM
+// ============================================================
+// Reusa el bot que ya tenés andando para el sheet Personal. Usa las MISMAS
+// Script Properties: TELEGRAM_TOKEN y TELEGRAM_CHAT_ID — copiá los mismos
+// valores en las Script Properties de ESTE proyecto (el de Gastos).
+//
+// SETUP (una sola vez):
+//   1) Project Settings → Script Properties → agregá TELEGRAM_TOKEN y
+//      TELEGRAM_CHAT_ID (los mismos valores que en el proyecto Personal).
+//   2) Ejecutá testTelegramTarjeta() desde el editor → te tiene que llegar
+//      un mensaje al Telegram.
+//   3) Ejecutá configurarRecordatorioTarjeta() una vez → crea el disparador
+//      diario (corre entre las 9 y las 10 de la mañana).
+//
+// Qué avisa:
+//   • 2 días antes del cierre y el día del cierre → "cargá el próximo ciclo".
+//   • Si el cierre ya pasó y no cargaste el ciclo siguiente → recordatorio
+//     a los 1, 3, 7 y 14 días (sin spamear todos los días).
+//   • El día antes y el día del vencimiento → cuánto tenés que pagar.
+
+function _enviarTelegramTC(texto) {
+  const props = PropertiesService.getScriptProperties();
+  const token = props.getProperty('TELEGRAM_TOKEN');
+  const chatId = props.getProperty('TELEGRAM_CHAT_ID');
+  if (!token || !chatId) {
+    Logger.log('Falta TELEGRAM_TOKEN o TELEGRAM_CHAT_ID en Script Properties de este proyecto.');
+    return false;
+  }
+  UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
+    method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ chat_id: chatId, text: texto, parse_mode: 'HTML' }),
+    muteHttpExceptions: true
+  });
+  return true;
+}
+
+// Mensaje de prueba — ejecutar desde el editor para verificar el bot.
+function testTelegramTarjeta() {
+  const ok = _enviarTelegramTC('✅ <b>Test OK</b>\nEl recordatorio de tarjeta del sheet de Gastos está funcionando.');
+  Logger.log(ok ? 'Mensaje enviado — fijate en Telegram.' : 'No se pudo enviar — revisá las Script Properties.');
+}
+
+// Crear el disparador diario — ejecutar UNA vez desde el editor.
+function configurarRecordatorioTarjeta() {
+  ScriptApp.getProjectTriggers().forEach(t => {
+    if (t.getHandlerFunction() === 'revisarTarjetaTelegram') ScriptApp.deleteTrigger(t);
+  });
+  ScriptApp.newTrigger('revisarTarjetaTelegram').timeBased().everyDays(1).atHour(9).create();
+  Logger.log('OK: disparador diario creado (corre entre las 9 y las 10am).');
+}
+
+// Corre todos los días vía trigger. Decide si hay algo que avisar hoy.
+function revisarTarjetaTelegram() {
+  const ciclos = _leerCiclos();
+  if (!ciclos.length) return;
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0);
+  const DIA = 24 * 60 * 60 * 1000;
+  const fmtF = ms => { const d = new Date(ms); return d.getDate() + '/' + (d.getMonth() + 1); };
+  const msgs = [];
+
+  // ── Cierre: se acerca, es hoy, o ya pasó sin ciclo nuevo cargado ──
+  const proxCierre = ciclos.find(c => c.cierre >= hoy.getTime());
+  if (proxCierre) {
+    const dias = Math.round((proxCierre.cierre - hoy.getTime()) / DIA);
+    if (dias === 2) {
+      msgs.push('📅 La tarjeta <b>cierra en 2 días</b> (' + fmtF(proxCierre.cierre) + '). Después del cierre acordate de cargar el próximo ciclo en la app.');
+    } else if (dias === 0) {
+      msgs.push('✂️ <b>Hoy cierra la tarjeta</b> (' + fmtF(proxCierre.cierre) + '). Cuando el banco te confirme el próximo cierre y vencimiento, cargalos en la app (botón <b>+</b> → 💳 Tarjeta).');
+    }
+  } else {
+    const ultimo = ciclos[ciclos.length - 1];
+    const diasPasados = Math.round((hoy.getTime() - ultimo.cierre) / DIA);
+    if ([1, 3, 7, 14].indexOf(diasPasados) >= 0) {
+      msgs.push('⚠️ El último cierre cargado (' + fmtF(ultimo.cierre) + ') fue hace ' + diasPasados + ' día' + (diasPasados === 1 ? '' : 's') + ' y el próximo ciclo <b>no está cargado</b>. Las compras nuevas se están imputando con fechas estimadas — cargá el próximo ciclo en la app (botón <b>+</b> → 💳 Tarjeta).');
+    }
+  }
+
+  // ── Vencimiento: mañana u hoy, con el monto del resumen ──
+  const proxVenc = ciclos.find(c => c.vencimiento >= hoy.getTime());
+  if (proxVenc) {
+    const dias = Math.round((proxVenc.vencimiento - hoy.getTime()) / DIA);
+    if (dias === 1 || dias === 0) {
+      let monto = 0;
+      try {
+        const data = getDashboardData();
+        const v = new Date(proxVenc.vencimiento);
+        const k = v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0');
+        const mes = (data.meses || []).find(m => m.key === k);
+        monto = (mes && mes.totalTC) || 0;
+      } catch (e) { /* sin monto, el aviso sale igual */ }
+      const montoTxt = monto > 0 ? ': <b>$' + Math.round(monto).toLocaleString('es-AR') + '</b>' : '';
+      msgs.push('💳 ' + (dias === 1 ? '<b>Mañana vence la tarjeta</b>' : '<b>HOY vence la tarjeta</b>') + ' (' + fmtF(proxVenc.vencimiento) + ')' + montoTxt + '. No te olvides de pagar el resumen.');
+    }
+  }
+
+  if (msgs.length) _enviarTelegramTC(msgs.join('\n\n'));
 }
 
 // ─── Helpers de caché (parten el texto en bloques por el límite de 100KB) ───

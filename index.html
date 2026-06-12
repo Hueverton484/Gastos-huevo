@@ -625,6 +625,10 @@ html[data-theme="dark"] .rutina-delta.down { color: #FCA5A5; background: rgba(21
 .tx-meta { color: #ABA9A0; font-size: 11px; }
 .tx-amt { font-variant-numeric: tabular-nums; font-weight: 500; white-space: nowrap; }
 .tx-amt.income { color: #1D9E75; }
+.tx-actions { display: flex; gap: 0; margin-left: 4px; flex-shrink: 0; }
+.tx-act { background: none; border: none; cursor: pointer; font-size: 13px; line-height: 1; opacity: 0.4; padding: 6px 5px; border-radius: 7px; transition: opacity 0.15s ease, background 0.15s ease; }
+.tx-act:hover { opacity: 1; background: rgba(0,0,0,0.06); }
+html[data-theme="dark"] .tx-act:hover { background: rgba(255,255,255,0.1); }
 .tx-empty { font-size: 13px; color: #ABA9A0; padding: 20px 0; text-align: center; }
 
 .empty-state, .loading, .error { text-align: center; padding: 80px 20px; color: #79786F; font-size: 14px; }
@@ -3500,22 +3504,39 @@ function onData(data) {
 }
 
 function buildTxList(mes) {
+  // row: número de fila real en el Sheet (solo gastos/ingresos cargados a mano;
+  // cuotas y fijos son sintéticos y no se pueden editar/borrar desde acá).
+  // montoSheet: el monto tal cual está en el Sheet (puede diferir del mostrado
+  // cuando hubo ajuste TC del modelo viejo) — se usa para verificar la fila.
   const gastos = (mes.gastos || []).filter(g => g.cat !== 'Ahorro' && g.monto > 0)
-    .map(g => ({ tipo: 'gasto', fecha: g.fecha || '', monto: g.monto, desc: g.desc || '', cat: g.cat || '' }));
+    .map(g => ({ tipo: 'gasto', fecha: g.fecha || '', monto: g.monto, desc: g.desc || '', cat: g.cat || '',
+                 row: g.row || null, cuenta: g.cuenta || '',
+                 montoSheet: (g.montoOriginal != null ? g.montoOriginal : g.monto) }));
   const ingresos = (mes.ingresos || [])
-    .map(i => ({ tipo: 'ingreso', fecha: i.fecha || '', monto: i.monto, desc: i.desc || '', cat: 'Ingreso' }));
+    .map(i => ({ tipo: 'ingreso', fecha: i.fecha || '', monto: i.monto, desc: i.desc || '', cat: 'Ingreso',
+                 row: i.row || null, montoSheet: i.monto }));
   return [...gastos, ...ingresos].sort((a, b) => (b.fecha > a.fecha ? 1 : -1));
 }
 function renderTxRows(list) {
   if (!list.length) return '<div class="tx-empty">Sin movimientos.</div>';
-  return list.map(tx => `
+  window._TX_INDEX = {};
+  return list.map(tx => {
+    const txid = tx.row ? (tx.tipo + ':' + tx.row) : null;
+    if (txid) window._TX_INDEX[txid] = tx;
+    const acciones = txid ? `<span class="tx-actions">
+        <button type="button" class="tx-act" data-act="edit" data-txid="${txid}" title="Editar" aria-label="Editar">✏️</button>
+        <button type="button" class="tx-act" data-act="del" data-txid="${txid}" title="Borrar" aria-label="Borrar">🗑️</button>
+      </span>` : '';
+    return `
     <div class="tx-row">
       <div class="tx-left">
         <span class="tx-desc">${esc((tx.desc || '').trim() || '—')}</span>
         <span class="tx-meta">${esc(tx.cat)}${tx.fecha ? ' · ' + fmtDay(tx.fecha) : ''}</span>
       </div>
       <span class="tx-amt ${tx.tipo === 'ingreso' ? 'income' : ''}">${tx.tipo === 'ingreso' ? '+' : ''}${fmtMoney(tx.monto)}</span>
-    </div>`).join('');
+      ${acciones}
+    </div>`;
+  }).join('');
 }
 
 // Calcula los resúmenes de tarjeta proyectados (meses futuros con consumo de tarjeta).
@@ -4422,6 +4443,116 @@ function setupTransactionSearch(allTx) {
   }
   searchEl.addEventListener('input', filter);
   catEl.addEventListener('change', filter);
+  // Acciones por fila (editar / borrar). Delegación sobre el contenedor:
+  // sobrevive a los re-render del filtro de búsqueda.
+  listEl.addEventListener('click', e => {
+    const btn = e.target.closest('.tx-act');
+    if (!btn) return;
+    const tx = (window._TX_INDEX || {})[btn.dataset.txid];
+    if (!tx) return;
+    if (btn.dataset.act === 'del') deleteMovimiento(tx, btn);
+    else openEditModal(tx);
+  });
+}
+
+// ── BORRAR MOVIMIENTO ─────────────────────────────────────────
+function deleteMovimiento(tx, btn) {
+  const fila = btn.closest('.tx-row');
+  const etiqueta = (tx.desc || tx.cat || 'movimiento');
+  if (!confirm('¿Borrar "' + etiqueta + '" de ' + fmtMoney(tx.montoSheet) + '?')) return;
+  if (fila) fila.style.opacity = '0.35';
+  const reqId = _newReqId();
+  jsonpSubmit(cbName => withAuth(APPS_SCRIPT_URL + '?action=delete_movimiento&callback=' + cbName +
+    '&reqId=' + reqId + '&tipo=' + tx.tipo + '&row=' + tx.row +
+    '&monto=' + encodeURIComponent(tx.montoSheet) + '&t=' + Date.now()),
+  function(r) {
+    if (maybeHandleAuthError(r)) return;
+    if (r && r.ok) {
+      if (fila) fila.style.display = 'none';
+      load();
+    } else if (r && r._maybeSaved) {
+      // Sin confirmación pero probablemente borrado — refrescar y ver.
+      load();
+    } else {
+      if (fila) fila.style.opacity = '';
+      alert('No se pudo borrar: ' + ((r && r.error) || 'error desconocido'));
+    }
+  });
+}
+
+// ── EDITAR MOVIMIENTO (reusa el modal de carga en "modo edición") ──
+let _EDIT_TX = null;
+
+function _exitEditMode() {
+  _EDIT_TX = null;
+  const title = document.querySelector('#modal-overlay .modal-title');
+  if (title) title.textContent = 'Cargar nuevo';
+  const bg = document.querySelector('#form-gasto .btn-save');
+  if (bg) bg.textContent = 'Cargar gasto';
+  const bi = document.querySelector('#form-ingreso .btn-save');
+  if (bi) bi.textContent = 'Cargar ingreso';
+}
+
+function openEditModal(tx) {
+  const overlay = document.getElementById('modal-overlay');
+  if (!overlay) return;
+  _EDIT_TX = tx;
+  overlay.classList.add('show');
+  setModalStatus('', '');
+  const t = tx.tipo; // 'gasto' | 'ingreso'
+  document.querySelectorAll('.modal-tab').forEach(x => x.classList.toggle('active', x.dataset.tab === t));
+  document.querySelectorAll('.form-section').forEach(s => s.classList.toggle('active', s.id === 'form-' + t));
+  const d = tx.fecha ? new Date(tx.fecha) : new Date();
+  const fstr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  if (t === 'gasto') {
+    document.getElementById('g-fecha').value = fstr;
+    document.getElementById('g-monto').value = tx.montoSheet;
+    document.getElementById('g-categoria').value = tx.cat || '';
+    document.getElementById('g-descripcion').value = tx.desc || '';
+    document.getElementById('g-cuenta').value = tx.cuenta || '';
+    document.querySelectorAll('#form-gasto .pay-chip').forEach(c =>
+      c.classList.toggle('active', c.getAttribute('data-cuenta') === tx.cuenta));
+    const hint = document.getElementById('pay-hint');
+    if (hint) hint.textContent = (tx.cuenta === 'Tarjeta de crédito') ? '💳 Se imputa al mes del vencimiento de tu tarjeta.' : '';
+  } else {
+    document.getElementById('i-fecha').value = fstr;
+    document.getElementById('i-monto').value = tx.montoSheet;
+    document.getElementById('i-descripcion').value = tx.desc || '';
+  }
+  const title = document.querySelector('#modal-overlay .modal-title');
+  if (title) title.textContent = 'Editar ' + (t === 'gasto' ? 'gasto' : 'ingreso');
+  const btn = document.querySelector('#form-' + t + ' .btn-save');
+  if (btn) btn.textContent = 'Guardar cambios';
+}
+
+function submitEdit(tx, fields) {
+  setModalStatus('Guardando cambios…', '');
+  const saveBtns = document.querySelectorAll('.btn-save');
+  saveBtns.forEach(b => b.disabled = true);
+  const reqId = _newReqId();
+  jsonpSubmit(cbName => {
+    let url = APPS_SCRIPT_URL + '?action=edit_movimiento&callback=' + cbName + '&reqId=' + reqId +
+      '&tipo=' + tx.tipo + '&row=' + tx.row + '&origMonto=' + encodeURIComponent(tx.montoSheet) + '&t=' + Date.now();
+    for (const k in fields) { if (fields[k] != null) url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]); }
+    return withAuth(url);
+  },
+  function(r) {
+    saveBtns.forEach(b => b.disabled = false);
+    if (maybeHandleAuthError(r)) return;
+    if (r && r.ok) {
+      setModalStatus('✓ Cambios guardados', 'success');
+      setTimeout(() => {
+        _exitEditMode();
+        document.getElementById('modal-overlay').classList.remove('show');
+        load();
+      }, 800);
+    } else if (r && r._maybeSaved) {
+      _exitEditMode();
+      _handleMaybeSaved();
+    } else {
+      setModalStatus('Error: ' + ((r && r.error) || 'desconocido'), 'error');
+    }
+  });
 }
 
 let _CHAT_HISTORY = [];
@@ -4504,9 +4635,11 @@ function setupAddForm() {
     const f = ms => { const d = new Date(ms); return d.getDate() + '/' + (d.getMonth() + 1); };
     el.innerHTML = '✓ Último ciclo cargado: cierre <strong>' + f(ult.cierre) + '</strong> · vence <strong>' + f(ult.vencimiento) + '</strong>';
   }
-  function openModal() { overlay.classList.add('show'); setModalStatus('',''); _refreshCicloInfo(); _resetPago(); }
-  function closeModal() { overlay.classList.remove('show'); }
+  function openModal() { _exitEditMode(); overlay.classList.add('show'); setModalStatus('',''); _refreshCicloInfo(); _resetPago(); }
+  function closeModal() { overlay.classList.remove('show'); _exitEditMode(); }
   function switchTab(t) {
+    // Cambiar de tab cancela el modo edición (los forms quedan para carga nueva)
+    if (_EDIT_TX) _exitEditMode();
     tabs.forEach(x => x.classList.toggle('active', x.dataset.tab === t));
     sections.forEach(s => s.classList.toggle('active', s.id === 'form-' + t));
     setModalStatus('','');
@@ -4526,11 +4659,15 @@ function setupAddForm() {
   tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
   formGasto.addEventListener('submit', e => {
     e.preventDefault();
-    submitEntry('gasto', { fecha: document.getElementById('g-fecha').value, monto: document.getElementById('g-monto').value, cat: document.getElementById('g-categoria').value, desc: document.getElementById('g-descripcion').value, cuenta: document.getElementById('g-cuenta').value });
+    const fields = { fecha: document.getElementById('g-fecha').value, monto: document.getElementById('g-monto').value, cat: document.getElementById('g-categoria').value, desc: document.getElementById('g-descripcion').value, cuenta: document.getElementById('g-cuenta').value };
+    if (_EDIT_TX && _EDIT_TX.tipo === 'gasto') submitEdit(_EDIT_TX, fields);
+    else submitEntry('gasto', fields);
   });
   formIngreso.addEventListener('submit', e => {
     e.preventDefault();
-    submitEntry('ingreso', { fecha: document.getElementById('i-fecha').value, monto: document.getElementById('i-monto').value, desc: document.getElementById('i-descripcion').value });
+    const fields = { fecha: document.getElementById('i-fecha').value, monto: document.getElementById('i-monto').value, desc: document.getElementById('i-descripcion').value };
+    if (_EDIT_TX && _EDIT_TX.tipo === 'ingreso') submitEdit(_EDIT_TX, fields);
+    else submitEntry('ingreso', fields);
   });
   const formCiclo = document.getElementById('form-ciclo');
   if (formCiclo) formCiclo.addEventListener('submit', e => { e.preventDefault(); submitCiclo(); });
