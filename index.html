@@ -4547,6 +4547,64 @@ function setupAddForm() {
   ['cuo-total', 'cuo-n'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', _cuoPrev); });
 }
 
+// ── ENVÍO CONFIABLE (JSONP con reintento idempotente) ─────────────
+// Problema que resuelve: el guardado en el Sheet casi siempre FUNCIONA,
+// pero a veces la respuesta tarda más que el timeout (cold start de Apps
+// Script) → la app mostraba "error" aunque la fila ya estaba guardada, y
+// si reintentabas a mano se duplicaba.
+// Ahora: cada operación lleva un reqId único. Si no llega respuesta,
+// reintenta UNA vez automáticamente con el MISMO reqId — el backend lo
+// reconoce y no duplica. Si aun así no hay confirmación, refrescamos los
+// datos igual (lo más probable es que se haya guardado).
+function _newReqId() {
+  return 'r' + Date.now() + '_' + Math.floor(Math.random() * 1e9);
+}
+
+function jsonpSubmit(buildUrl, onResult) {
+  const PER_ATTEMPT_MS = 14000;
+  const MAX_ATTEMPTS = 2;
+  let attempt = 0;
+  function fire() {
+    attempt++;
+    const cbName = '__jp_' + Date.now() + '_' + Math.floor(Math.random() * 1e6);
+    const script = document.createElement('script');
+    let settled = false;
+    function cleanup() {
+      try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
+      if (script.parentNode) script.parentNode.removeChild(script);
+    }
+    const timeoutId = setTimeout(() => {
+      if (settled) return; settled = true; cleanup();
+      if (attempt < MAX_ATTEMPTS) { setModalStatus('Reintentando…', ''); fire(); }
+      else onResult({ ok: false, error: 'timeout', _maybeSaved: true });
+    }, PER_ATTEMPT_MS);
+    window[cbName] = function(r) {
+      if (settled) return; settled = true;
+      clearTimeout(timeoutId); cleanup();
+      onResult(r);
+    };
+    script.onerror = function() {
+      if (settled) return; settled = true;
+      clearTimeout(timeoutId); cleanup();
+      if (attempt < MAX_ATTEMPTS) { setModalStatus('Reintentando…', ''); setTimeout(fire, 800); }
+      else onResult({ ok: false, error: 'conexión', _maybeSaved: true });
+    };
+    script.src = buildUrl(cbName);
+    document.body.appendChild(script);
+  }
+  fire();
+}
+
+// Cierre común para los 3 formularios cuando no llegó confirmación pero el
+// dato probablemente se guardó: avisar, cerrar el modal y recargar datos.
+function _handleMaybeSaved() {
+  setModalStatus('Sin confirmación del servidor — verificando si se guardó…', '');
+  setTimeout(() => {
+    document.getElementById('modal-overlay').classList.remove('show');
+    load();
+  }, 1600);
+}
+
 function submitCiclo() {
   const cierre = document.getElementById('c-cierre').value;
   const venc = document.getElementById('c-vencimiento').value;
@@ -4554,26 +4612,18 @@ function submitCiclo() {
   setModalStatus('Guardando…', '');
   const saveBtns = document.querySelectorAll('.btn-save');
   saveBtns.forEach(b => b.disabled = true);
-  const cbName = '__addCiclo_' + Date.now();
-  const script = document.createElement('script');
-  function cleanup() {
-    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
-    if (script.parentNode) script.parentNode.removeChild(script);
+  jsonpSubmit(cbName => withAuth(APPS_SCRIPT_URL + '?action=add_ciclo&callback=' + cbName +
+    '&cierre=' + encodeURIComponent(cierre) + '&vencimiento=' + encodeURIComponent(venc) + '&t=' + Date.now()),
+  function(r) {
     saveBtns.forEach(b => b.disabled = false);
-  }
-  const timeoutId = setTimeout(() => { cleanup(); setModalStatus('Tiempo agotado. Probá de nuevo.', 'error'); }, 15000);
-  window[cbName] = function(r) {
-    clearTimeout(timeoutId); cleanup();
     if (maybeHandleAuthError(r)) return;
     if (r && r.ok) {
       setModalStatus('✓ Ciclo guardado', 'success');
       setTimeout(() => { document.getElementById('modal-overlay').classList.remove('show'); load(); }, 800);
+    } else if (r && r._maybeSaved) {
+      _handleMaybeSaved();
     } else { setModalStatus('Error: ' + ((r && r.error) || 'desconocido'), 'error'); }
-  };
-  script.src = withAuth(APPS_SCRIPT_URL + '?action=add_ciclo&callback=' + cbName +
-    '&cierre=' + encodeURIComponent(cierre) + '&vencimiento=' + encodeURIComponent(venc) + '&t=' + Date.now());
-  script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.', 'error'); };
-  document.body.appendChild(script);
+  });
 }
 
 function submitCuota() {
@@ -4586,30 +4636,24 @@ function submitCuota() {
   setModalStatus('Guardando…', '');
   const saveBtns = document.querySelectorAll('.btn-save');
   saveBtns.forEach(b => b.disabled = true);
-  const cbName = '__addCuota_' + Date.now();
-  const script = document.createElement('script');
-  function cleanup() {
-    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
-    if (script.parentNode) script.parentNode.removeChild(script);
+  const reqId = _newReqId();
+  jsonpSubmit(cbName => withAuth(APPS_SCRIPT_URL + '?action=add_cuota&callback=' + cbName +
+    '&reqId=' + reqId +
+    '&desc=' + encodeURIComponent(desc) + '&montoTotal=' + encodeURIComponent(total) +
+    '&nCuotas=' + encodeURIComponent(n) + '&fechaCompra=' + encodeURIComponent(fecha) +
+    '&categoria=' + encodeURIComponent(cat) + '&t=' + Date.now()),
+  function(r) {
     saveBtns.forEach(b => b.disabled = false);
-  }
-  const timeoutId = setTimeout(() => { cleanup(); setModalStatus('Tiempo agotado. Probá de nuevo.', 'error'); }, 20000);
-  window[cbName] = function(r) {
-    clearTimeout(timeoutId); cleanup();
     if (maybeHandleAuthError(r)) return;
     if (r && r.ok) {
       setModalStatus('✓ Cuotas agregadas', 'success');
       ['cuo-desc','cuo-total','cuo-n'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
       const prev = document.getElementById('cuo-preview'); if (prev) prev.textContent = '';
       setTimeout(() => { document.getElementById('modal-overlay').classList.remove('show'); load(); }, 800);
+    } else if (r && r._maybeSaved) {
+      _handleMaybeSaved();
     } else { setModalStatus('Error: ' + ((r && r.error) || 'desconocido'), 'error'); }
-  };
-  script.src = withAuth(APPS_SCRIPT_URL + '?action=add_cuota&callback=' + cbName +
-    '&desc=' + encodeURIComponent(desc) + '&montoTotal=' + encodeURIComponent(total) +
-    '&nCuotas=' + encodeURIComponent(n) + '&fechaCompra=' + encodeURIComponent(fecha) +
-    '&categoria=' + encodeURIComponent(cat) + '&t=' + Date.now());
-  script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.', 'error'); };
-  document.body.appendChild(script);
+  });
 }
 
 function setModalStatus(text, kind) {
@@ -4622,29 +4666,24 @@ function submitEntry(tipo, fields) {
   setModalStatus('Guardando…','');
   const saveBtns = document.querySelectorAll('.btn-save');
   saveBtns.forEach(b => b.disabled = true);
-  const cbName = '__addEntry_' + Date.now();
-  const script = document.createElement('script');
-  function cleanup() {
-    try { delete window[cbName]; } catch(e) { window[cbName] = undefined; }
-    if (script.parentNode) script.parentNode.removeChild(script);
+  const reqId = _newReqId();
+  jsonpSubmit(cbName => {
+    let url = APPS_SCRIPT_URL + '?action=add_' + tipo + '&callback=' + cbName + '&reqId=' + reqId + '&t=' + Date.now();
+    for (const k in fields) { if (fields[k] != null) url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]); }
+    return withAuth(url);
+  },
+  function(response) {
     saveBtns.forEach(b => b.disabled = false);
-  }
-  const timeoutId = setTimeout(() => { cleanup(); setModalStatus('Tiempo agotado. Probá de nuevo.','error'); }, 15000);
-  window[cbName] = function(response) {
-    clearTimeout(timeoutId); cleanup();
     if (maybeHandleAuthError(response)) return;
     if (response && response.ok) {
       setModalStatus('✓ Cargado correctamente','success');
       if (tipo === 'gasto') { document.getElementById('g-monto').value=''; document.getElementById('g-descripcion').value=''; document.getElementById('g-categoria').value=''; document.getElementById('g-cuenta').value=''; }
       else { document.getElementById('i-monto').value=''; document.getElementById('i-descripcion').value=''; }
       setTimeout(() => { document.getElementById('modal-overlay').classList.remove('show'); load(); }, 800);
+    } else if (response && response._maybeSaved) {
+      _handleMaybeSaved();
     } else { setModalStatus('Error: ' + ((response && response.error) || 'desconocido'), 'error'); }
-  };
-  let url = APPS_SCRIPT_URL + '?action=add_' + tipo + '&callback=' + cbName + '&t=' + Date.now();
-  for (const k in fields) { if (fields[k] != null) url += '&' + encodeURIComponent(k) + '=' + encodeURIComponent(fields[k]); }
-  script.src = withAuth(url);
-  script.onerror = function() { clearTimeout(timeoutId); cleanup(); setModalStatus('Error de conexión.','error'); };
-  document.body.appendChild(script);
+  });
 }
 
 function setupChat() {

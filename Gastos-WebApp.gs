@@ -176,16 +176,27 @@ function _agregarGasto(p) {
     const sheet = ss.getSheetByName('Respuestas de formulario 1');
     if (!sheet) return { ok: false, error: 'Hoja "Respuestas de formulario 1" no existe' };
 
-    // Si la hoja tiene la columna Cuenta (6+ columnas), la incluimos.
-    const lastCol = sheet.getLastColumn();
-    const row = [new Date(), fecha, cat, desc, monto];
-    if (lastCol >= 6) row.push(cuenta);
+    // Lock + dedupe: si esto es un reintento de una operación que ya se
+    // guardó (la respuesta se perdió por timeout), no duplicar la fila.
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      if (_yaProcesado(p.reqId)) return { ok: true, dedup: true };
 
-    sheet.appendRow(row);
+      // Si la hoja tiene la columna Cuenta (6+ columnas), la incluimos.
+      const lastCol = sheet.getLastColumn();
+      const row = [new Date(), fecha, cat, desc, monto];
+      if (lastCol >= 6) row.push(cuenta);
 
-    // Regenerar el Dashboard interno del Sheet para que quede sincronizado
-    // con la página web. Equivale al trigger automático del Form.
-    _regenerarResumenSilencioso();
+      sheet.appendRow(row);
+      _marcarProcesado(p.reqId);
+    } finally {
+      lock.releaseLock();
+    }
+
+    // Regenerar el Dashboard interno del Sheet en segundo plano para que la
+    // respuesta vuelva rápido (la PWA no depende de esa regeneración).
+    _programarRegeneracion();
 
     return { ok: true };
   } catch (err) {
@@ -206,9 +217,17 @@ function _agregarIngreso(p) {
     const sheet = ss.getSheetByName('Respuestas de formulario 2');
     if (!sheet) return { ok: false, error: 'Hoja "Respuestas de formulario 2" no existe' };
 
-    sheet.appendRow([new Date(), fecha, desc, monto]);
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      if (_yaProcesado(p.reqId)) return { ok: true, dedup: true };
+      sheet.appendRow([new Date(), fecha, desc, monto]);
+      _marcarProcesado(p.reqId);
+    } finally {
+      lock.releaseLock();
+    }
 
-    _regenerarResumenSilencioso();
+    _programarRegeneracion();
 
     return { ok: true };
   } catch (err) {
@@ -293,8 +312,16 @@ function _agregarCuota(p) {
       h = ss.insertSheet('Cuotas');
       h.getRange(1, 1, 1, 6).setValues([['Descripción', 'Monto Total', 'N° Cuotas', 'Fecha 1° Cuota (dd/mm/aaaa)', 'Categoría', 'Cuenta']]).setFontWeight('bold');
     }
-    h.appendRow([desc, montoTotal, nCuotas, fecha1, categoria, 'Tarjeta de crédito']);
-    _regenerarResumenSilencioso();
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      if (_yaProcesado(p.reqId)) return { ok: true, dedup: true };
+      h.appendRow([desc, montoTotal, nCuotas, fecha1, categoria, 'Tarjeta de crédito']);
+      _marcarProcesado(p.reqId);
+    } finally {
+      lock.releaseLock();
+    }
+    _programarRegeneracion();
     return { ok: true };
   } catch (err) { return { ok: false, error: err.message }; }
 }
@@ -336,6 +363,49 @@ function _regenerarResumenSilencioso() {
     // llama desde el Web App), el resto ya se ejecutó correctamente.
     // Ignoramos el error del alert.
   }
+}
+
+// ── GUARDADO RÁPIDO: regeneración del Dashboard EN SEGUNDO PLANO ──
+// Antes, cada add_gasto/add_ingreso regeneraba el Dashboard interno del Sheet
+// ANTES de responder → la respuesta tardaba 10-20s, el frontend cortaba por
+// timeout y mostraba error aunque la fila ya estaba guardada.
+// Ahora el add responde apenas se escribe la fila, y el Dashboard se regenera
+// 1 segundo después vía trigger (sin bloquear la respuesta). Si el script no
+// tiene permiso para crear triggers (falta re-autorizar), cae al modo viejo.
+function _programarRegeneracion() {
+  try {
+    ScriptApp.getProjectTriggers().forEach(t => {
+      if (t.getHandlerFunction() === '_regenTrigger') ScriptApp.deleteTrigger(t);
+    });
+    ScriptApp.newTrigger('_regenTrigger').timeBased().after(1000).create();
+  } catch (e) {
+    // Sin permiso de triggers → regenerar inline (lento pero funcional).
+    _regenerarResumenSilencioso();
+  }
+}
+
+function _regenTrigger() {
+  try {
+    ScriptApp.getProjectTriggers().forEach(t => {
+      if (t.getHandlerFunction() === '_regenTrigger') ScriptApp.deleteTrigger(t);
+    });
+  } catch (e) { /* seguir igual */ }
+  _regenerarResumenSilencioso();
+}
+
+// ── IDEMPOTENCIA: dedupe por reqId ──────────────────────────────
+// El frontend manda un reqId único por operación. Si la respuesta se pierde
+// (timeout, red) y reintenta con el MISMO reqId, acá lo detectamos y NO
+// duplicamos la fila — devolvemos ok directamente.
+function _yaProcesado(reqId) {
+  if (!reqId) return false;
+  try { return CacheService.getScriptCache().get('req_' + reqId) === '1'; }
+  catch (e) { return false; }
+}
+
+function _marcarProcesado(reqId) {
+  if (!reqId) return;
+  try { CacheService.getScriptCache().put('req_' + reqId, '1', 3600); } catch (e) {}
 }
 
 const _PERSONALIDADES = {
