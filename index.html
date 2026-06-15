@@ -1490,7 +1490,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     </div>
     <form class="form-section active" id="form-gasto">
       <input type="date" id="g-fecha" required>
-      <input type="number" id="g-monto" placeholder="Monto" inputmode="numeric" required min="1" step="any">
+      <input type="number" id="g-monto" placeholder="Monto" inputmode="decimal" required min="0.01" step="any">
       <select id="g-categoria" required></select>
       <input type="text" id="g-descripcion" placeholder="Descripción" required>
       <div class="pay-method">
@@ -1509,7 +1509,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     </form>
     <form class="form-section" id="form-ingreso">
       <input type="date" id="i-fecha" required>
-      <input type="number" id="i-monto" placeholder="Monto" inputmode="numeric" required min="1" step="any">
+      <input type="number" id="i-monto" placeholder="Monto" inputmode="decimal" required min="0.01" step="any">
       <input type="text" id="i-descripcion" placeholder="Descripción (ej. Sueldo)" required>
       <div class="form-buttons">
         <button type="button" class="btn-cancel" data-cancel>Cancelar</button>
@@ -1531,7 +1531,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     <form class="form-section" id="form-cuota">
       <p style="font-size:12.5px;color:#79786F;margin:0 0 2px;line-height:1.4;">Compra en cuotas con tarjeta. La <strong>1ª cuota</strong> cae en el próximo vencimiento; el resto, en los meses siguientes.</p>
       <input type="text" id="cuo-desc" placeholder="¿Qué compraste? (ej: Notebook)" required>
-      <input type="number" id="cuo-total" placeholder="Monto total" inputmode="numeric" required min="1" step="any">
+      <input type="number" id="cuo-total" placeholder="Monto total" inputmode="decimal" required min="0.01" step="any">
       <input type="number" id="cuo-n" placeholder="Cantidad de cuotas" inputmode="numeric" required min="1" max="60">
       <label style="font-size:11px;color:#79786F;font-weight:500;">Fecha de la compra</label>
       <input type="date" id="cuo-fecha" required>
