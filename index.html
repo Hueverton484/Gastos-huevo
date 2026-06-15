@@ -1490,7 +1490,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     </div>
     <form class="form-section active" id="form-gasto">
       <input type="date" id="g-fecha" required>
-      <input type="number" id="g-monto" placeholder="Monto" inputmode="decimal" required min="0.01" step="any">
+      <input type="text" id="g-monto" placeholder="Monto" inputmode="decimal" autocomplete="off" required>
       <select id="g-categoria" required></select>
       <input type="text" id="g-descripcion" placeholder="Descripción" required>
       <div class="pay-method">
@@ -1509,7 +1509,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     </form>
     <form class="form-section" id="form-ingreso">
       <input type="date" id="i-fecha" required>
-      <input type="number" id="i-monto" placeholder="Monto" inputmode="decimal" required min="0.01" step="any">
+      <input type="text" id="i-monto" placeholder="Monto" inputmode="decimal" autocomplete="off" required>
       <input type="text" id="i-descripcion" placeholder="Descripción (ej. Sueldo)" required>
       <div class="form-buttons">
         <button type="button" class="btn-cancel" data-cancel>Cancelar</button>
@@ -1531,7 +1531,7 @@ html[data-theme="dark"] .header-band::after { background: linear-gradient(105deg
     <form class="form-section" id="form-cuota">
       <p style="font-size:12.5px;color:#79786F;margin:0 0 2px;line-height:1.4;">Compra en cuotas con tarjeta. La <strong>1ª cuota</strong> cae en el próximo vencimiento; el resto, en los meses siguientes.</p>
       <input type="text" id="cuo-desc" placeholder="¿Qué compraste? (ej: Notebook)" required>
-      <input type="number" id="cuo-total" placeholder="Monto total" inputmode="decimal" required min="0.01" step="any">
+      <input type="text" id="cuo-total" placeholder="Monto total" inputmode="decimal" autocomplete="off" required>
       <input type="number" id="cuo-n" placeholder="Cantidad de cuotas" inputmode="numeric" required min="1" max="60">
       <label style="font-size:11px;color:#79786F;font-weight:500;">Fecha de la compra</label>
       <input type="date" id="cuo-fecha" required>
@@ -4659,13 +4659,13 @@ function setupAddForm() {
   tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
   formGasto.addEventListener('submit', e => {
     e.preventDefault();
-    const fields = { fecha: document.getElementById('g-fecha').value, monto: document.getElementById('g-monto').value, cat: document.getElementById('g-categoria').value, desc: document.getElementById('g-descripcion').value, cuenta: document.getElementById('g-cuenta').value };
+    const fields = { fecha: document.getElementById('g-fecha').value, monto: _parseMonto(document.getElementById('g-monto').value), cat: document.getElementById('g-categoria').value, desc: document.getElementById('g-descripcion').value, cuenta: document.getElementById('g-cuenta').value };
     if (_EDIT_TX && _EDIT_TX.tipo === 'gasto') submitEdit(_EDIT_TX, fields);
     else submitEntry('gasto', fields);
   });
   formIngreso.addEventListener('submit', e => {
     e.preventDefault();
-    const fields = { fecha: document.getElementById('i-fecha').value, monto: document.getElementById('i-monto').value, desc: document.getElementById('i-descripcion').value };
+    const fields = { fecha: document.getElementById('i-fecha').value, monto: _parseMonto(document.getElementById('i-monto').value), desc: document.getElementById('i-descripcion').value };
     if (_EDIT_TX && _EDIT_TX.tipo === 'ingreso') submitEdit(_EDIT_TX, fields);
     else submitEntry('ingreso', fields);
   });
@@ -4675,13 +4675,45 @@ function setupAddForm() {
   if (formCuota) formCuota.addEventListener('submit', e => { e.preventDefault(); submitCuota(); });
   // Preview en vivo del valor por cuota
   const _cuoPrev = () => {
-    const total = parseFloat(document.getElementById('cuo-total').value);
+    const total = parseFloat(_parseMonto(document.getElementById('cuo-total').value));
     const n = parseInt(document.getElementById('cuo-n').value);
     const el = document.getElementById('cuo-preview');
     if (el) el.textContent = (!isNaN(total) && total > 0 && !isNaN(n) && n > 0)
       ? '≈ ' + fmtMoney(Math.round(total / n)) + ' por mes · ' + n + ' cuotas' : '';
   };
   ['cuo-total', 'cuo-n'].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener('input', _cuoPrev); });
+}
+
+// ── NORMALIZACIÓN DE MONTOS ───────────────────────────────────────
+// Los campos de monto son type="text" para que el teclado del celular acepte
+// la COMA decimal (formato argentino). Acá convertimos lo que sea que haya
+// escrito Huevo a un número con punto decimal, listo para el backend:
+//   "1500,50"   → "1500.50"   (coma como decimal)
+//   "1.500,50"  → "1500.50"   (punto miles + coma decimal)
+//   "1500.50"   → "1500.50"   (punto decimal, sin cambios)
+//   "1500"      → "1500"
+function _parseMonto(raw) {
+  if (raw == null) return '';
+  let s = String(raw).trim().replace(/\s/g, '');
+  if (!s) return '';
+  const hasComma = s.indexOf(',') >= 0;
+  const hasDot = s.indexOf('.') >= 0;
+  if (hasComma && hasDot) {
+    // El separador que aparece más a la derecha es el decimal.
+    if (s.lastIndexOf(',') > s.lastIndexOf('.')) {
+      s = s.replace(/\./g, '').replace(/,/g, '.'); // 1.500,50 → 1500.50
+    } else {
+      s = s.replace(/,/g, '');                      // 1,500.50 → 1500.50
+    }
+  } else if (hasComma) {
+    // Una sola coma = decimal; varias = separadores de miles.
+    s = (s.match(/,/g).length === 1) ? s.replace(',', '.') : s.replace(/,/g, '');
+  } else if (hasDot) {
+    // Solo puntos: si hay más de uno son separadores de miles (1.500.000).
+    // Un solo punto se interpreta como decimal (1500.50).
+    if (s.match(/\./g).length > 1) s = s.replace(/\./g, '');
+  }
+  return s;
 }
 
 // ── ENVÍO CONFIABLE (JSONP con reintento idempotente) ─────────────
@@ -4765,7 +4797,7 @@ function submitCiclo() {
 
 function submitCuota() {
   const desc = document.getElementById('cuo-desc').value.trim();
-  const total = document.getElementById('cuo-total').value;
+  const total = _parseMonto(document.getElementById('cuo-total').value);
   const n = document.getElementById('cuo-n').value;
   const fecha = document.getElementById('cuo-fecha').value;
   const cat = document.getElementById('cuo-categoria').value || 'Otro';
