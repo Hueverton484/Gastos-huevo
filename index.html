@@ -1562,6 +1562,9 @@ let _CHARTS = {};
 let _CACHE_SIG = null;
 let _REFRESHING = false;
 const CACHE_KEY = 'misgastos_cache_v1';
+// Sello de versión: subilo en cada cambio para confirmar en el celu (footer)
+// que estás viendo la versión nueva y no la cacheada.
+const APP_VERSION = '2026.06.15';
 
 function fmtMoney(n) {
   if (n == null || isNaN(n)) return '—';
@@ -3982,7 +3985,7 @@ function render() {
       </div>
     </div>
 
-    <div class="footer-meta">Datos actualizados ${fmtDateAgo(data.actualizado)}</div>
+    <div class="footer-meta">Datos actualizados ${fmtDateAgo(data.actualizado)} · v${APP_VERSION}</div>
   `;
 
   document.getElementById('app').innerHTML = html;
