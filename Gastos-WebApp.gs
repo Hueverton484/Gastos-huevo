@@ -637,13 +637,12 @@ function askGemini(question, history) {
     '• Los gastos por categoría del mes en curso son los del bloque "POR CATEGORÍA — ACTUAL vs ESPERADO". No mezcles ese número con el de cuotas distribuidas ni con promedios históricos sin aclarar. Si vas a sumar dos cosas, decí explícitamente cuáles.\n' +
     '• Si Huevo te tira un número sin contexto (ej. "125.000"), preguntale qué representa antes de razonar — no asumas que es el precio de algo ni el total del mes.\n\n' +
 
-    'SALDO Y BUFFER ACUMULADO (entendelo bien antes de hablar de plata disponible):\n' +
-    '• "Saldo libre del mes en curso" es SOLO lo que ingresó este mes menos lo gastado y lo ahorrado ESTE MES. Es la métrica del flujo del mes.\n' +
-    '• "Buffer acumulado de meses anteriores" es plata REAL que quedó en la cuenta de Huevo porque en meses pasados gastó menos de lo que ingresó. Está disponible, no es teórica.\n' +
-    '• "TOTAL DISPONIBLE" = saldo del mes + buffer. Esto es lo que efectivamente tiene en la cuenta para usar. Cuando opinás sobre capacidad de gastar algo, esta es la métrica que más pesa.\n' +
-    '• Un buffer alto significa que Huevo viene ahorrando de hecho aunque no lo etiquete como "Ahorro". Si se queja de que "no le alcanza" pero el buffer es alto, decíselo con honestidad — "técnicamente tenés $X de buffer arrastrado, no estás tan apretado como creés".\n' +
-    '• Si el buffer es bajo o cero, eso significa que Huevo viene gastando todo lo que entra mes a mes. Eso es información relevante para opinar sobre nuevos gastos discrecionales.\n' +
-    '• NO confundas el "saldo del mes" con el "total disponible". Si Huevo pregunta "¿me alcanza?", la respuesta usa el total. Si pregunta "¿cómo voy este mes?", usás el saldo del mes (es la foto del flujo).\n\n' +
+    'SALDO Y SOBRANTE ARRASTRADO (entendelo bien antes de hablar de plata disponible):\n' +
+    '• El sobrante que un mes deja sin gastar se arrastra al mes siguiente como un INGRESO más ("Sobrante de mayo"). O sea: si mayo cerró con $100.000, junio ya arranca con ese sobrante sumado a su ingreso.\n' +
+    '• "SALDO DISPONIBLE del mes" YA incluye ese sobrante arrastrado. Es la plata real que Huevo tiene para usar este mes (ingreso real + sobrante − gastos − ahorro). Cuando opinás sobre capacidad de gastar algo, esta es la métrica que más pesa. NO le sumes el sobrante de nuevo: ya está adentro del saldo.\n' +
+    '• Si el "sobrante arrastrado" es alto, significa que Huevo viene gastando menos de lo que entra: tiene más aire del que cree. Si se queja de que "no le alcanza" pero el saldo (con sobrante) es holgado, decíselo con honestidad.\n' +
+    '• Si el sobrante arrastrado es bajo o cero, viene gastando todo lo que entra mes a mes — dato relevante para opinar sobre gastos discrecionales nuevos.\n' +
+    '• "Ingreso real del mes" (sin sobrante) es lo que sirve para hablar de su sueldo/capacidad de generación. "Ingreso total" y "saldo" son para hablar de cuánto puede gastar. No los mezcles.\n\n' +
 
     'USO DE COMPARACIONES (esto es lo que separa una respuesta criteriosa de una vacía):\n' +
     '• TODOS los números del CONTEXTO ya están calculados por el sistema (tendencias, proyecciones, %, promedios, colchón). Confiá en ellos y citalos — NO los recalcules de cabeza, porque te equivocás. Tu trabajo es interpretarlos y tomar posición, no rehacer la aritmética.\n' +
@@ -999,14 +998,14 @@ function _construirTendenciaYSalud(meses, mActual, dayOfMonth, daysInMonth) {
     ahorroTxt = 'ahorrás en promedio el ' + Math.round(tasaAhorro * 100) + '% de tu ingreso; te queda libre (después de gastos, sin contar ahorro) el ' + Math.round(tasaLibre * 100) + '%.';
   }
 
-  // 3) Colchón: cuántos meses de gasto cubre el buffer acumulado
+  // 3) Colchón: cuántos meses de gasto cubre el sobrante arrastrado
   const gastoProm = previos.reduce((s, x) => s + x.totalGastos, 0) / previos.length;
-  const buffer = mActual.bufferEntrante || 0;
+  const buffer = mActual.sobranteEntrante || 0;
   let colchonTxt = '';
   if (gastoProm > 0) {
     const mesesColchon = buffer / gastoProm;
     const clasif = mesesColchon >= 2 ? 'colchón SANO' : mesesColchon >= 0.75 ? 'colchón JUSTO' : mesesColchon > 0 ? 'colchón AL LÍMITE' : 'SIN colchón (vivís mes a mes)';
-    colchonTxt = 'tu buffer (' + fmt(buffer) + ') cubre ~' + mesesColchon.toFixed(1) + ' meses de gasto promedio (' + fmt(gastoProm) + '/mes) → ' + clasif + '.';
+    colchonTxt = 'el sobrante arrastrado (' + fmt(buffer) + ') cubre ~' + mesesColchon.toFixed(1) + ' meses de gasto promedio (' + fmt(gastoProm) + '/mes) → ' + clasif + '.';
   }
 
   return 'TRAYECTORIA Y SALUD FINANCIERA (ya calculado — es tu marco para juzgar capacidad de gasto, no recalcules):\n' +
@@ -1032,10 +1031,10 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
   const isCurrent = m.key === todayKey;
   const dayOfMonth = isCurrent ? today.getDate() : daysInMonth;
   const daysRemaining = Math.max(0, daysInMonth - dayOfMonth);
+  const sobranteEntrante = m.sobranteEntrante || 0;
+  // El saldo del mes YA incluye el sobrante arrastrado del mes anterior.
+  const ingresoTotalMes = m.ingreso + sobranteEntrante;
   const dailyFromSaldo = daysRemaining > 0 ? Math.round(m.saldo / daysRemaining) : 0;
-  const bufferEntrante = m.bufferEntrante || 0;
-  const totalDisponible = m.saldo + bufferEntrante;
-  const dailyFromTotal = daysRemaining > 0 ? Math.round(totalDisponible / daysRemaining) : 0;
 
   const fmt = n => '$' + Math.round(n || 0).toLocaleString('es-AR');
 
@@ -1119,15 +1118,14 @@ function _construirContextoFinanciero(data, ingresoPromedio, rechazosRecientes) 
   const ingresoTxt = ingresoPromedio > 0 ? fmt(ingresoPromedio) : '(sin datos)';
 
   return 'Mes en curso: ' + monthName + ' ' + m.año + ' (día ' + dayOfMonth + ' de ' + daysInMonth + ', faltan ' + daysRemaining + ' días)\n' +
-    'Ingresos del mes: ' + fmt(m.ingreso) + '\n' +
-    'Ingresos promedio mensuales (de meses cargados): ' + ingresoTxt + '\n' +
+    'Ingreso real del mes (sueldo y otros del mes): ' + fmt(m.ingreso) + '\n' +
+    'Sobrante arrastrado del mes anterior (ya sumado como ingreso este mes): ' + fmt(sobranteEntrante) + '\n' +
+    'Ingreso total del mes (real + sobrante arrastrado): ' + fmt(ingresoTotalMes) + '\n' +
+    'Ingreso real promedio mensual (de meses cargados, sin contar sobrantes): ' + ingresoTxt + '\n' +
     'Gastos acumulados del mes: ' + fmt(m.totalGastos) + '\n' +
     'Ahorro del mes: ' + fmt(m.totalAhorro) + '\n' +
-    'Saldo libre del mes en curso: ' + fmt(m.saldo) + '\n' +
-    'Buffer acumulado de meses anteriores (sobrante que quedó en la cuenta): ' + fmt(bufferEntrante) + '\n' +
-    'TOTAL DISPONIBLE en cuenta (saldo del mes + buffer): ' + fmt(totalDisponible) + '\n' +
-    'Disponible por día solo con saldo del mes: ' + fmt(dailyFromSaldo) + '\n' +
-    'Disponible por día con buffer incluido: ' + fmt(dailyFromTotal) + '\n\n' +
+    'SALDO DISPONIBLE del mes (ingreso total − gastos − ahorro; ya incluye el sobrante arrastrado): ' + fmt(m.saldo) + '\n' +
+    'Disponible por día con lo que queda de saldo: ' + fmt(dailyFromSaldo) + '\n\n' +
     tendenciaBloque + '\n\n' +
     ritmoBloque + '\n\n' +
     transaccionesTexto + '\n\n' +
@@ -1156,7 +1154,7 @@ function getDashboardData() {
   const cache = CacheService.getScriptCache();
   let _dataVer = '0';
   try { _dataVer = PropertiesService.getScriptProperties().getProperty('DATA_VERSION') || '0'; } catch (e) {}
-  const cacheKey = 'dash_v6_' + _dataVer + '_' +
+  const cacheKey = 'dash_v7_' + _dataVer + '_' +
     (shGastos   ? shGastos.getLastRow()   : 0) + '_' +
     (shIngresos ? shIngresos.getLastRow() : 0) + '_' +
     (shCuotas   ? shCuotas.getLastRow()   : 0) + '_' +
@@ -1343,19 +1341,41 @@ function getDashboardData() {
     };
   });
 
-  // ── BUFFER ACUMULADO ───────────────────────────────────────────
-  // El sobrante de cada mes (saldo positivo) queda físicamente en la cuenta y
-  // se arrastra como buffer disponible para el mes siguiente. Si un mes
-  // terminó en déficit, asumimos que el rojo lo cubriste con plata externa
-  // al tracking (ahorros previos, transferencia, etc.) → el buffer no va
-  // a negativo. Recorremos en orden cronológico (más viejo → más reciente).
-  // mesesData ya viene ordenado desc, iteramos desde el final.
-  let _buf = 0;
+  // ── SOBRANTE ARRASTRADO AL MES SIGUIENTE ───────────────────────
+  // El sobrante de un mes (lo que quedó sin gastar) se traslada al mes
+  // siguiente como un INGRESO visible más ("Sobrante de mayo"), de modo que
+  // el saldo del mes nuevo ya lo incluye. Ejemplo: si mayo cierra con $100.000,
+  // junio arranca con ese sobrante sumado a su ingreso real.
+  // Si un mes cerró en déficit, asumimos que el rojo se cubrió con plata
+  // externa al tracking → el sobrante no se vuelve negativo (arranca de 0).
+  // Recorremos cronológicamente (más viejo → más reciente); mesesData viene
+  // ordenado desc, así que iteramos desde el final.
+  const NOMBRES_MES = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  let _carry = 0;
   for (let i = mesesData.length - 1; i >= 0; i--) {
     const mes = mesesData[i];
-    mes.bufferEntrante = _buf;
-    _buf = Math.max(0, _buf + mes.saldo);
-    mes.bufferSaliente = _buf;
+    mes.sobranteEntrante = _carry;
+    // El saldo del mes ahora incluye el sobrante arrastrado del mes anterior.
+    const saldoBase = mes.ingreso - mes.totalGastos - mes.totalAhorro;
+    mes.saldo = saldoBase + _carry;
+    _carry = Math.max(0, mes.saldo); // lo que sobra (si sobra) pasa al siguiente
+    mes.sobranteSaliente = _carry;
+    // Compatibilidad: algunos consumidores viejos usaban bufferEntrante.
+    mes.bufferEntrante = mes.sobranteEntrante;
+    mes.bufferSaliente = mes.sobranteSaliente;
+    // Mostrar el sobrante entrante como una entrada de ingreso real y visible.
+    if (mes.sobranteEntrante > 0) {
+      const prevIdx = i + 1; // el mes anterior (más viejo) está en i+1 (orden desc)
+      const etiquetaPrev = (prevIdx < mesesData.length) ? NOMBRES_MES[mesesData[prevIdx].mesNum] : 'mes anterior';
+      // Copia para no mutar el array compartido de ingresosDetalle.
+      mes.ingresos = (mes.ingresos || []).slice();
+      mes.ingresos.unshift({
+        fecha: new Date(mes.año, mes.mesNum, 1).getTime(),
+        desc: 'Sobrante de ' + etiquetaPrev,
+        monto: mes.sobranteEntrante,
+        esSobrante: true
+      });
+    }
   }
 
   // Auto-calcular el acumulado de metas sumando TODOS los gastos con categoría

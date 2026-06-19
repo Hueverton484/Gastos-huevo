@@ -1564,7 +1564,7 @@ let _REFRESHING = false;
 const CACHE_KEY = 'misgastos_cache_v1';
 // Sello de versión: subilo en cada cambio para confirmar en el celu (footer)
 // que estás viendo la versión nueva y no la cacheada.
-const APP_VERSION = '2026.06.15';
+const APP_VERSION = '2026.06.19';
 
 function fmtMoney(n) {
   if (n == null || isNaN(n)) return '—';
@@ -3724,8 +3724,13 @@ function render() {
     return '<option value="' + m.key + '"' + (m.key === _CURRENT_MONTH ? ' selected' : '') + '>' + label + '</option>';
   }).join('');
 
+  // Ingreso mostrado = ingreso real del mes + sobrante arrastrado del mes anterior.
+  // El sobrante ya viene como una entrada en mes.ingresos (desc "Sobrante de …").
+  const sobranteEntrante = mes.sobranteEntrante || 0;
+  const ingresoMostrado = mes.ingreso + sobranteEntrante;
+
   const deltaGastos   = fmtDelta(mes.totalGastos, prevMes && prevMes.totalGastos, true);
-  const deltaIngresos = fmtDelta(mes.ingreso,      prevMes && prevMes.ingreso,     false);
+  const deltaIngresos = fmtDelta(ingresoMostrado, prevMes && ((prevMes.ingreso || 0) + (prevMes.sobranteEntrante || 0)), false);
   const deltaAhorro   = fmtDelta(mes.totalAhorro,  prevMes && prevMes.totalAhorro, false);
   const deltaSaldo    = fmtDelta(mes.saldo,         prevMes && prevMes.saldo,       false);
 
@@ -3747,9 +3752,12 @@ function render() {
     const mn = MONTH_NAMES[m.mesNum];
     const label = mn.charAt(0).toUpperCase() + mn.slice(1, 3) + ' ' + String(m.año).slice(2);
     const isCur = m.key === _CURRENT_MONTH;
+    // Ingreso mostrado incluye el sobrante arrastrado, así la fila cuadra:
+    // ingreso − gastos − ahorro = saldo.
+    const ingresoFila = (m.ingreso || 0) + (m.sobranteEntrante || 0);
     return `<div class="annual-row ${isCur ? 'current' : ''}">
       <span class="annual-month">${label}</span>
-      <span class="annual-val green">${fmtMoney(m.ingreso)}</span>
+      <span class="annual-val green">${fmtMoney(ingresoFila)}</span>
       <span class="annual-val red">${fmtMoney(m.totalGastos)}</span>
       <span class="annual-val">${fmtMoney(m.totalAhorro)}</span>
       <span class="annual-val ${m.saldo < 0 ? 'red' : ''}">${fmtMoney(m.saldo)}</span>
@@ -3775,8 +3783,8 @@ function render() {
       <div class="kpi-grid">
         <div class="kpi">
           <div class="kpi-label">Ingresos</div>
-          <div class="kpi-value" data-count="${mes.ingreso}">${fmtMoney(mes.ingreso)}</div>
-          <div class="kpi-hint">${mes.ingresos.length} entrada${mes.ingresos.length === 1 ? '' : 's'}</div>
+          <div class="kpi-value" data-count="${ingresoMostrado}">${fmtMoney(ingresoMostrado)}</div>
+          <div class="kpi-hint">${sobranteEntrante > 0 ? 'incl. ' + fmtMoney(sobranteEntrante) + ' de sobrante' : mes.ingresos.length + ' entrada' + (mes.ingresos.length === 1 ? '' : 's')}</div>
           ${deltaIngresos}
         </div>
         <div class="kpi">
