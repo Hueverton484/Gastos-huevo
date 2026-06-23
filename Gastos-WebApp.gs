@@ -367,7 +367,19 @@ function _ajustesSaldoSheet_() {
     h = ss.insertSheet('Ajustes Saldo');
     h.getRange(1, 1, 1, 4).setValues([['Mes', 'Sobrante arranque', 'Saldo objetivo', 'Actualizado']]).setFontWeight('bold');
   }
+  // La columna del mes ("2026-06") DEBE quedar como texto: si no, Sheets la
+  // interpreta como fecha y al releerla no matchea → el ajuste se ignora.
+  try { h.getRange('A2:A').setNumberFormat('@'); } catch (e) {}
   return h;
+}
+
+// Normaliza el valor de la columna "Mes" a "YYYY-MM", tolerando que Sheets lo
+// haya guardado como fecha (junio 2026) en vez de texto.
+function _mesKeyDe(v) {
+  if (v instanceof Date && !isNaN(v.getTime())) {
+    return v.getFullYear() + '-' + String(v.getMonth() + 1).padStart(2, '0');
+  }
+  return String(v || '').trim();
 }
 
 function _leerAjustesSaldo(ss) {
@@ -375,7 +387,7 @@ function _leerAjustesSaldo(ss) {
   if (!h || h.getLastRow() < 2) return {};
   const out = {};
   h.getDataRange().getValues().slice(1).forEach(r => {
-    const mes = String(r[0] || '').trim();
+    const mes = _mesKeyDe(r[0]);
     if (!/^\d{4}-\d{2}$/.test(mes)) return;
     const sob = parseFloat(r[1]);
     if (!isNaN(sob)) out[mes] = sob;
@@ -398,11 +410,14 @@ function _setAjusteSaldo(p) {
       const data = h.getDataRange().getValues();
       let fila = -1;
       for (let i = 1; i < data.length; i++) {
-        if (String(data[i][0] || '').trim() === mes) { fila = i + 1; break; }
+        if (_mesKeyDe(data[i][0]) === mes) { fila = i + 1; break; }
       }
       const row = [mes, sobrante, isNaN(saldoObjetivo) ? '' : saldoObjetivo, new Date()];
-      if (fila > 0) h.getRange(fila, 1, 1, 4).setValues([row]);
-      else h.appendRow(row);
+      const destino = fila > 0 ? fila : h.getLastRow() + 1;
+      // Forzar la celda del mes a texto ANTES de escribir, para que no se
+      // convierta en fecha.
+      h.getRange(destino, 1).setNumberFormat('@');
+      h.getRange(destino, 1, 1, 4).setValues([row]);
       _marcarProcesado(p.reqId);
       _bumpDataVersion();
     } finally { lock.releaseLock(); }
@@ -421,7 +436,7 @@ function _clearAjusteSaldo(p) {
     try {
       const data = h.getDataRange().getValues();
       for (let i = data.length - 1; i >= 1; i--) {
-        if (String(data[i][0] || '').trim() === mes) h.deleteRow(i + 1);
+        if (_mesKeyDe(data[i][0]) === mes) h.deleteRow(i + 1);
       }
       _bumpDataVersion();
     } finally { lock.releaseLock(); }
@@ -1239,7 +1254,7 @@ function getDashboardData() {
   const cache = CacheService.getScriptCache();
   let _dataVer = '0';
   try { _dataVer = PropertiesService.getScriptProperties().getProperty('DATA_VERSION') || '0'; } catch (e) {}
-  const cacheKey = 'dash_v8_' + _dataVer + '_' +
+  const cacheKey = 'dash_v9_' + _dataVer + '_' +
     (shGastos   ? shGastos.getLastRow()   : 0) + '_' +
     (shIngresos ? shIngresos.getLastRow() : 0) + '_' +
     (shCuotas   ? shCuotas.getLastRow()   : 0) + '_' +
