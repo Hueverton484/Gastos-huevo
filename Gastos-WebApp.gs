@@ -78,6 +78,15 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.action === 'edit_movimiento' && e.parameter.callback) {
     return _jsonpResponse(e.parameter.callback, _editarMovimiento(e.parameter));
   }
+  // Modo "set_ajuste_saldo": fijar el sobrante de arranque de un mes para que
+  // el saldo refleje la plata real (corrige el arrastre acumulado inflado).
+  if (e && e.parameter && e.parameter.action === 'set_ajuste_saldo' && e.parameter.callback) {
+    return _jsonpResponse(e.parameter.callback, _setAjusteSaldo(e.parameter));
+  }
+  // Modo "clear_ajuste_saldo": quitar el ajuste de un mes (vuelve al arrastre automático)
+  if (e && e.parameter && e.parameter.action === 'clear_ajuste_saldo' && e.parameter.callback) {
+    return _jsonpResponse(e.parameter.callback, _clearAjusteSaldo(e.parameter));
+  }
 
   // Modo "ask": consulta al asistente financiero (Gemini)
   // Llamada: ?action=ask&q=texto-pregunta&history=JSON&callback=funcName
@@ -342,6 +351,82 @@ function _bumpDataVersion() {
     const v = parseInt(props.getProperty('DATA_VERSION') || '0', 10) + 1;
     props.setProperty('DATA_VERSION', String(v));
   } catch (e) {}
+}
+
+// ── AJUSTE DE SALDO POR MES ─────────────────────────────────
+// Corrige el arrastre acumulado del sobrante (que se infla con meses viejos
+// incompletos). El usuario fija el SALDO REAL de un mes; guardamos el
+// "sobrante de arranque" (valor absoluto) necesario para que ese mes dé ese
+// saldo. A partir de ese mes el arrastre sigue normal. Como guardamos el
+// sobrante (no el saldo), los gastos nuevos del mes siguen bajando el saldo.
+// Hoja "Ajustes Saldo": [Mes (YYYY-MM), Sobrante arranque, Saldo objetivo, Actualizado].
+function _ajustesSaldoSheet_() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let h = ss.getSheetByName('Ajustes Saldo');
+  if (!h) {
+    h = ss.insertSheet('Ajustes Saldo');
+    h.getRange(1, 1, 1, 4).setValues([['Mes', 'Sobrante arranque', 'Saldo objetivo', 'Actualizado']]).setFontWeight('bold');
+  }
+  return h;
+}
+
+function _leerAjustesSaldo(ss) {
+  const h = (ss || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName('Ajustes Saldo');
+  if (!h || h.getLastRow() < 2) return {};
+  const out = {};
+  h.getDataRange().getValues().slice(1).forEach(r => {
+    const mes = String(r[0] || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(mes)) return;
+    const sob = parseFloat(r[1]);
+    if (!isNaN(sob)) out[mes] = sob;
+  });
+  return out;
+}
+
+function _setAjusteSaldo(p) {
+  try {
+    const mes = String(p.mes || '').trim();
+    const sobrante = parseFloat(p.sobrante);
+    const saldoObjetivo = parseFloat(p.saldoObjetivo);
+    if (!/^\d{4}-\d{2}$/.test(mes)) return { ok: false, error: 'Mes inválido (esperado YYYY-MM)' };
+    if (isNaN(sobrante)) return { ok: false, error: 'Sobrante inválido' };
+    const h = _ajustesSaldoSheet_();
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      if (_yaProcesado(p.reqId)) return { ok: true, dedup: true };
+      const data = h.getDataRange().getValues();
+      let fila = -1;
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0] || '').trim() === mes) { fila = i + 1; break; }
+      }
+      const row = [mes, sobrante, isNaN(saldoObjetivo) ? '' : saldoObjetivo, new Date()];
+      if (fila > 0) h.getRange(fila, 1, 1, 4).setValues([row]);
+      else h.appendRow(row);
+      _marcarProcesado(p.reqId);
+      _bumpDataVersion();
+    } finally { lock.releaseLock(); }
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
+}
+
+function _clearAjusteSaldo(p) {
+  try {
+    const mes = String(p.mes || '').trim();
+    if (!/^\d{4}-\d{2}$/.test(mes)) return { ok: false, error: 'Mes inválido' };
+    const h = (SpreadsheetApp.getActiveSpreadsheet()).getSheetByName('Ajustes Saldo');
+    if (!h) return { ok: true };
+    const lock = LockService.getScriptLock();
+    lock.waitLock(20000);
+    try {
+      const data = h.getDataRange().getValues();
+      for (let i = data.length - 1; i >= 1; i--) {
+        if (String(data[i][0] || '').trim() === mes) h.deleteRow(i + 1);
+      }
+      _bumpDataVersion();
+    } finally { lock.releaseLock(); }
+    return { ok: true };
+  } catch (err) { return { ok: false, error: err.message }; }
 }
 
 // ── CICLOS DE TARJETA (cierre/vencimiento) ──────────────────
@@ -1154,7 +1239,7 @@ function getDashboardData() {
   const cache = CacheService.getScriptCache();
   let _dataVer = '0';
   try { _dataVer = PropertiesService.getScriptProperties().getProperty('DATA_VERSION') || '0'; } catch (e) {}
-  const cacheKey = 'dash_v7_' + _dataVer + '_' +
+  const cacheKey = 'dash_v8_' + _dataVer + '_' +
     (shGastos   ? shGastos.getLastRow()   : 0) + '_' +
     (shIngresos ? shIngresos.getLastRow() : 0) + '_' +
     (shCuotas   ? shCuotas.getLastRow()   : 0) + '_' +
@@ -1177,6 +1262,7 @@ function getDashboardData() {
   const gastosFijos = _leerGastosFijos(ss);
   const metasRaw = _leerMetas(ss);
   const ciclos = _leerCiclos(ss);
+  const ajustesSaldo = _leerAjustesSaldo(ss); // { 'YYYY-MM': sobranteArranque }
 
   const porMes = {}, ingresosPorMes = {};
 
@@ -1354,10 +1440,15 @@ function getDashboardData() {
   let _carry = 0;
   for (let i = mesesData.length - 1; i >= 0; i--) {
     const mes = mesesData[i];
-    mes.sobranteEntrante = _carry;
+    // Si este mes tiene un ajuste manual, su sobrante de arranque se FIJA a ese
+    // valor (corrige el arrastre inflado) en vez de usar el acumulado. Desde
+    // acá la cadena sigue normal hacia adelante.
+    const tieneAjuste = Object.prototype.hasOwnProperty.call(ajustesSaldo, mes.key);
+    mes.sobranteEntrante = tieneAjuste ? ajustesSaldo[mes.key] : _carry;
+    mes.ajusteSaldoManual = tieneAjuste;
     // El saldo del mes ahora incluye el sobrante arrastrado del mes anterior.
     const saldoBase = mes.ingreso - mes.totalGastos - mes.totalAhorro;
-    mes.saldo = saldoBase + _carry;
+    mes.saldo = saldoBase + mes.sobranteEntrante;
     _carry = Math.max(0, mes.saldo); // lo que sobra (si sobra) pasa al siguiente
     mes.sobranteSaliente = _carry;
     // Compatibilidad: algunos consumidores viejos usaban bufferEntrante.

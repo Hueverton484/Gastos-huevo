@@ -629,6 +629,10 @@ html[data-theme="dark"] .rutina-delta.down { color: #FCA5A5; background: rgba(21
 .tx-act { background: none; border: none; cursor: pointer; font-size: 13px; line-height: 1; opacity: 0.4; padding: 6px 5px; border-radius: 7px; transition: opacity 0.15s ease, background 0.15s ease; }
 .tx-act:hover { opacity: 1; background: rgba(0,0,0,0.06); }
 html[data-theme="dark"] .tx-act:hover { background: rgba(255,255,255,0.1); }
+.saldo-adjust-btn { background: none; border: 1px solid #ECECE8; cursor: pointer; font-size: 11px; color: #79786F; padding: 4px 9px; border-radius: 7px; transition: all 0.15s ease; font-weight: 500; }
+.saldo-adjust-btn:hover { border-color: #1D9E75; color: #1D9E75; }
+html[data-theme="dark"] .saldo-adjust-btn { border-color: rgba(255,255,255,0.12); color: #ABA9A0; }
+html[data-theme="dark"] .saldo-adjust-btn:hover { border-color: #1D9E75; color: #6EE7B7; }
 .tx-empty { font-size: 13px; color: #ABA9A0; padding: 20px 0; text-align: center; }
 
 .empty-state, .loading, .error { text-align: center; padding: 80px 20px; color: #79786F; font-size: 14px; }
@@ -1564,7 +1568,7 @@ let _REFRESHING = false;
 const CACHE_KEY = 'misgastos_cache_v1';
 // Sello de versión: subilo en cada cambio para confirmar en el celu (footer)
 // que estás viendo la versión nueva y no la cacheada.
-const APP_VERSION = '2026.06.19';
+const APP_VERSION = '2026.06.23';
 
 function fmtMoney(n) {
   if (n == null || isNaN(n)) return '—';
@@ -3876,8 +3880,11 @@ function render() {
       <div class="card">
         <div class="card-header">
           <div class="card-title">Disponible por día</div>
-          <div class="card-meta">${fmtMoney(mes.saldo)} de saldo</div>
+          <div class="card-meta">
+            <button class="saldo-adjust-btn" onclick="ajustarSaldo('${mes.key}')" title="Fijar el saldo real de este mes">${mes.ajusteSaldoManual ? '✓ saldo ajustado' : '⚙ ajustar saldo'}</button>
+          </div>
         </div>
+        ${mes.ajusteSaldoManual ? `<div class="goal-meta" style="margin:-4px 0 10px;color:#1D9E75;">Saldo fijado manualmente · <a href="#" onclick="quitarAjusteSaldo('${mes.key}');return false;" style="color:#ABA9A0;">volver al automático</a></div>` : ''}
         ${isCurrentMonth && daysRemaining > 0 ? `
           <div class="goal-amount">
             <span class="big" data-count="${dailyFromSaldo}" style="color:${mes.saldo < 0 ? '#A32D2D' : 'inherit'};">${fmtMoney(dailyFromSaldo)}</span>
@@ -4488,6 +4495,51 @@ function deleteMovimiento(tx, btn) {
       if (fila) fila.style.opacity = '';
       alert('No se pudo borrar: ' + ((r && r.error) || 'error desconocido'));
     }
+  });
+}
+
+// ── AJUSTE DE SALDO REAL ──────────────────────────────────────
+// Corrige el saldo de un mes cuando el arrastre acumulado quedó inflado.
+// El usuario ingresa el saldo REAL; calculamos el "sobrante de arranque"
+// (saldoObjetivo − saldoBase del mes) y lo guardamos. De ahí en más los
+// gastos nuevos siguen bajando el saldo normalmente.
+function ajustarSaldo(mesKey) {
+  const mes = (_DATA && _DATA.meses || []).find(m => m.key === mesKey);
+  if (!mes) return;
+  const actual = mes.saldo || 0;
+  const raw = prompt(
+    'Saldo REAL que tenés en la cuenta este mes.\n\n' +
+    'La app muestra ' + fmtMoney(actual) + '. Si no coincide con tu plata real ' +
+    '(por arrastre de meses viejos), poné acá el número correcto y se ajusta.',
+    String(Math.round(actual))
+  );
+  if (raw == null) return;
+  const objetivo = parseFloat(_parseMonto(raw));
+  if (isNaN(objetivo)) { alert('Número inválido.'); return; }
+  // saldo = saldoBase + sobranteEntrante  →  saldoBase = saldo − sobranteEntrante
+  const saldoBase = (mes.saldo || 0) - (mes.sobranteEntrante || 0);
+  const sobranteAjustado = objetivo - saldoBase;
+  const reqId = _newReqId();
+  jsonpSubmit(cbName => withAuth(APPS_SCRIPT_URL + '?action=set_ajuste_saldo&callback=' + cbName +
+    '&reqId=' + reqId + '&mes=' + encodeURIComponent(mesKey) +
+    '&sobrante=' + encodeURIComponent(sobranteAjustado) +
+    '&saldoObjetivo=' + encodeURIComponent(objetivo) + '&t=' + Date.now()),
+  function(r) {
+    if (maybeHandleAuthError(r)) return;
+    if (r && (r.ok || r._maybeSaved)) load();
+    else alert('No se pudo ajustar: ' + ((r && r.error) || 'error desconocido'));
+  });
+}
+
+function quitarAjusteSaldo(mesKey) {
+  if (!confirm('¿Volver al cálculo automático del saldo para este mes?')) return;
+  const reqId = _newReqId();
+  jsonpSubmit(cbName => withAuth(APPS_SCRIPT_URL + '?action=clear_ajuste_saldo&callback=' + cbName +
+    '&reqId=' + reqId + '&mes=' + encodeURIComponent(mesKey) + '&t=' + Date.now()),
+  function(r) {
+    if (maybeHandleAuthError(r)) return;
+    if (r && (r.ok || r._maybeSaved)) load();
+    else alert('No se pudo quitar: ' + ((r && r.error) || 'error desconocido'));
   });
 }
 
